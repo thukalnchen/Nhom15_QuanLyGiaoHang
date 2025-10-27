@@ -13,8 +13,9 @@ class AppColors {
 }
 
 class AppConstants {
-  static const String apiBaseUrl = 'http://localhost:3000/api';
-  static const String socketUrl = 'http://localhost:3000';
+  // Use 10.0.2.2 for Android Emulator, localhost for Web/iOS
+  static const String apiBaseUrl = 'http://10.0.2.2:3000/api';
+  static const String socketUrl = 'http://10.0.2.2:3000';
   
   // API Endpoints
   static const String loginEndpoint = '/auth/login';
