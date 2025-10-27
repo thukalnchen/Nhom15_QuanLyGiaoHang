@@ -46,7 +46,7 @@ app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/orders', orderRoutes); // Remove authenticateToken for now
+app.use('/api/orders', authenticateToken, orderRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/tracking', authenticateToken, trackingRoutes);
 
