@@ -4,9 +4,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/constants.dart';
 import '../orders/orders_screen.dart';
-import '../orders/create_order_screen.dart';
-import '../tracking/tracking_screen.dart';
 import '../profile/profile_screen.dart';
+import 'lalamove_home_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,10 +19,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late PageController _pageController;
 
   final List<Widget> _screens = [
-    const HomeTab(),
+    const LalamoveHomeTab(),
     const OrdersScreen(),
-    const CreateOrderScreen(),
-    const TrackingScreen(),
     const ProfileScreen(),
   ];
 
@@ -31,7 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    _loadUserOrders();
+    // Defer loading orders until after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserOrders();
+    });
   }
 
   @override
@@ -78,6 +78,10 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: _onTabTapped,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.grey,
+        backgroundColor: Colors.white,
+        elevation: 8,
+        selectedFontSize: 12,
+        unselectedFontSize: 11,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -85,24 +89,14 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Trang chủ',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            activeIcon: Icon(Icons.shopping_cart),
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
             label: 'Đơn hàng',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            activeIcon: Icon(Icons.add_circle),
-            label: 'Tạo đơn',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_on_outlined),
-            activeIcon: Icon(Icons.location_on),
-            label: 'Theo dõi',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
-            label: 'Hồ sơ',
+            label: 'Tài khoản',
           ),
         ],
       ),
@@ -146,33 +140,65 @@ class HomeTab extends StatelessWidget {
               builder: (context, authProvider, child) {
                 return Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.secondary],
+                      colors: [AppColors.primary, AppColors.primaryDark],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Xin chào, ${authProvider.user?['full_name'] ?? 'Khách'}!',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Chọn món ăn yêu thích của bạn',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.local_shipping_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Xin chào, ${authProvider.user?['full_name'] ?? 'Khách'}!',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Giao hàng nhanh, mọi lúc mọi nơi',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -183,7 +209,7 @@ class HomeTab extends StatelessWidget {
             
             // Quick Actions
             const Text(
-              'Thao tác nhanh',
+              'Dịch vụ giao hàng',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -196,9 +222,9 @@ class HomeTab extends StatelessWidget {
               children: [
                 Expanded(
                   child: _QuickActionCard(
-                    icon: Icons.add_circle,
-                    title: 'Tạo đơn hàng',
-                    subtitle: 'Đặt món ăn mới',
+                    icon: Icons.add_box_rounded,
+                    title: 'Tạo đơn giao hàng',
+                    subtitle: 'Gửi hàng ngay',
                     color: AppColors.primary,
                     onTap: () {
                       Navigator.pushNamed(context, '/create-order');
@@ -208,9 +234,9 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _QuickActionCard(
-                    icon: Icons.shopping_cart,
+                    icon: Icons.receipt_long_rounded,
                     title: 'Đơn hàng',
-                    subtitle: 'Xem đơn hàng của tôi',
+                    subtitle: 'Lịch sử đơn hàng',
                     color: AppColors.success,
                     onTap: () {
                       Navigator.pushNamed(context, '/orders');
@@ -225,9 +251,9 @@ class HomeTab extends StatelessWidget {
               children: [
                 Expanded(
                   child: _QuickActionCard(
-                    icon: Icons.location_on,
+                    icon: Icons.local_shipping_rounded,
                     title: 'Theo dõi',
-                    subtitle: 'Theo dõi giao hàng',
+                    subtitle: 'Xem vị trí đơn hàng',
                     color: AppColors.warning,
                     onTap: () {
                       Navigator.pushNamed(context, '/tracking');
@@ -237,8 +263,8 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _QuickActionCard(
-                    icon: Icons.person,
-                    title: 'Hồ sơ',
+                    icon: Icons.person_rounded,
+                    title: 'Tài khoản',
                     subtitle: 'Thông tin cá nhân',
                     color: AppColors.secondary,
                     onTap: () {
@@ -251,15 +277,26 @@ class HomeTab extends StatelessWidget {
             const SizedBox(height: 24),
             
             // Recent Orders
-            const Text(
-              'Đơn hàng gần đây',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.dark,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Đơn hàng gần đây',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.dark,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/orders');
+                  },
+                  child: const Text('Xem tất cả'),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
             Consumer<OrderProvider>(
               builder: (context, orderProvider, child) {
@@ -274,39 +311,51 @@ class HomeTab extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: AppColors.lightGrey,
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.lightGrey, width: 2),
                     ),
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.shopping_cart_outlined,
-                          size: 64,
-                          color: AppColors.grey,
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.lightGrey,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.local_shipping_outlined,
+                            size: 64,
+                            color: AppColors.grey,
+                          ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Text(
                           'Chưa có đơn hàng nào',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.grey,
+                            color: AppColors.dark,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Hãy tạo đơn hàng đầu tiên của bạn',
+                          'Hãy tạo đơn giao hàng đầu tiên của bạn',
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.grey,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pushNamed(context, '/create-order');
                           },
-                          child: const Text('Tạo đơn hàng'),
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Tạo đơn giao hàng'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          ),
                         ),
                       ],
                     ),
@@ -317,20 +366,42 @@ class HomeTab extends StatelessWidget {
                   children: orderProvider.orders.take(3).map((order) {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: AppColors.lightGrey, width: 1),
+                      ),
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AppUtils.getStatusColor(order['status']),
+                        contentPadding: const EdgeInsets.all(12),
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: AppUtils.getStatusColor(order['status']).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Icon(
-                            Icons.restaurant,
-                            color: Colors.white,
+                            Icons.local_shipping_rounded,
+                            color: AppUtils.getStatusColor(order['status']),
+                            size: 28,
                           ),
                         ),
                         title: Text(
-                          order['restaurant_name'] ?? 'Nhà hàng',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          order['restaurant_name'] ?? 'Người gửi',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                        subtitle: Text(
-                          '${AppTexts.orderNumber}: ${order['order_number']}',
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Mã: ${order['order_number']}',
+                            style: TextStyle(
+                              color: AppColors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
                         ),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -341,20 +412,22 @@ class HomeTab extends StatelessWidget {
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
+                                fontSize: 16,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: AppUtils.getStatusColor(order['status']),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
                                 AppUtils.getStatusText(order['status']),
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),

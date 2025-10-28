@@ -57,6 +57,30 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     return subtotal + _deliveryFee;
   }
 
+  Widget _buildSectionHeader({required IconData icon, required String title, required Color color}) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.dark,
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _createOrder() async {
     if (!_formKey.currentState!.validate()) return;
     if (_items.isEmpty) {
@@ -107,6 +131,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppTexts.createOrder),
+        elevation: 0,
       ),
       body: Form(
         key: _formKey,
@@ -115,42 +140,51 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Restaurant Information
-              const Text(
-                'Thông tin nhà hàng',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              // Pickup Information (Sender)
+              _buildSectionHeader(
+                icon: Icons.upload_rounded,
+                title: 'Thông tin người gửi',
+                color: AppColors.primary,
               ),
               const SizedBox(height: 16),
               
               TextFormField(
                 controller: _restaurantController,
                 decoration: const InputDecoration(
-                  labelText: 'Tên nhà hàng',
-                  hintText: AppTexts.enterRestaurantName,
-                  prefixIcon: Icon(Icons.restaurant),
+                  labelText: 'Tên người gửi',
+                  hintText: AppTexts.enterSenderName,
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
-                validator: (value) => AppValidators.required(value, 'Tên nhà hàng'),
+                validator: (value) => AppValidators.required(value, 'Tên người gửi'),
               ),
               const SizedBox(height: 24),
               
-              // Items Section
+              // Packages Section
+              _buildSectionHeader(
+                icon: Icons.inventory_2_outlined,
+                title: 'Thông tin kiện hàng',
+                color: AppColors.warning,
+              ),
+              const SizedBox(height: 12),
+              
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Sản phẩm',
+                  Text(
+                    '${_items.length} kiện hàng',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.grey,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   ElevatedButton.icon(
                     onPressed: _addItem,
-                    icon: const Icon(Icons.add),
-                    label: const Text(AppTexts.addItem),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text(AppTexts.addPackage),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
                   ),
                 ],
               ),
@@ -161,32 +195,39 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppColors.lightGrey,
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.grey.withOpacity(0.3),
-                      style: BorderStyle.solid,
+                      color: AppColors.lightGrey,
+                      width: 2,
                     ),
                   ),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.add_shopping_cart,
-                        size: 48,
-                        color: AppColors.grey,
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightGrey,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          size: 48,
+                          color: AppColors.grey,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Chưa có sản phẩm nào',
+                        'Chưa có kiện hàng nào',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.grey,
+                          color: AppColors.dark,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Nhấn "Thêm sản phẩm" để bắt đầu',
+                        'Nhấn "Thêm kiện hàng" để bắt đầu',
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.grey,
@@ -200,10 +241,44 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   final index = entry.key;
                   final item = entry.value;
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: AppColors.lightGrey, width: 1),
+                    ),
                     child: ListTile(
-                      title: Text(item['name']),
-                      subtitle: Text('${item['quantity']} x ${AppUtils.formatCurrency(item['price'])}'),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: Container(
+                        width: 45,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.inventory_2,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                      ),
+                      title: Text(
+                        item['name'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'SL: ${item['quantity']} | Giá: ${AppUtils.formatCurrency(item['price'])}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.grey,
+                          ),
+                        ),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -212,11 +287,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
+                              fontSize: 15,
                             ),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.delete, color: AppColors.danger),
+                            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
                             onPressed: () => _removeItem(index),
                           ),
                         ],
@@ -228,12 +304,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               const SizedBox(height: 24),
               
               // Delivery Information
-              const Text(
-                'Thông tin giao hàng',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              _buildSectionHeader(
+                icon: Icons.location_on_outlined,
+                title: 'Thông tin giao hàng',
+                color: AppColors.success,
               ),
               const SizedBox(height: 16),
               
@@ -241,7 +315,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 controller: _deliveryAddressController,
                 decoration: const InputDecoration(
                   labelText: 'Địa chỉ giao hàng',
-                  hintText: AppTexts.enterDeliveryAddress,
+                  hintText: 'Nhập địa chỉ nhận hàng',
                   prefixIcon: Icon(Icons.location_on),
                 ),
                 maxLines: 2,
@@ -407,7 +481,21 @@ class _AddItemDialogState extends State<_AddItemDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text(AppTexts.addItem),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.inventory_2, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Text(AppTexts.addPackage),
+        ],
+      ),
       content: Form(
         key: _formKey,
         child: Column(
@@ -416,10 +504,11 @@ class _AddItemDialogState extends State<_AddItemDialog> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'Tên sản phẩm',
-                hintText: AppTexts.enterItemName,
+                labelText: 'Tên kiện hàng',
+                hintText: AppTexts.enterPackageName,
+                prefixIcon: Icon(Icons.inventory_2_outlined),
               ),
-              validator: (value) => AppValidators.required(value, 'Tên sản phẩm'),
+              validator: (value) => AppValidators.required(value, 'Tên kiện hàng'),
             ),
             const SizedBox(height: 16),
             
@@ -427,9 +516,10 @@ class _AddItemDialogState extends State<_AddItemDialog> {
               controller: _priceController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Giá',
+                labelText: 'Giá trị hàng hóa',
                 hintText: AppTexts.enterPrice,
                 prefixText: '₫ ',
+                prefixIcon: Icon(Icons.attach_money),
               ),
               validator: AppValidators.price,
             ),

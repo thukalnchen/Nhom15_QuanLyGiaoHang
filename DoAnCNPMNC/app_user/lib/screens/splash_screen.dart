@@ -58,46 +58,51 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Lalamove-style logo
               Container(
-                width: 120,
-                height: 120,
+                width: 140,
+                height: 140,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 30,
                       offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: const Icon(
-                  Icons.restaurant,
-                  size: 60,
+                  Icons.local_shipping_rounded,
+                  size: 80,
                   color: AppColors.primary,
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 35),
               const Text(
                 AppTexts.appName,
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 36,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
+                  letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               const Text(
                 AppTexts.welcomeMessage,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.white70,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 60),
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 3,
               ),
             ],
           ),

@@ -1,53 +1,76 @@
-# Hướng dẫn cài đặt nhanh - Food Delivery System
+# 🚀 Hướng dẫn cài đặt nhanh - Lalamove Express
 
-## Yêu cầu hệ thống
-- Node.js (v16 trở lên)
-- PostgreSQL (v12 trở lên)
-- Flutter SDK (v3.0 trở lên) - chỉ cần cho mobile app
-- Git
+> **App đã được chuyển đổi sang phong cách Lalamove! 🚚**
 
-## Cài đặt nhanh
+## 📋 Yêu cầu hệ thống
+- **Node.js** (v16 trở lên)
+- **PostgreSQL** (v12 trở lên)
+- **Flutter SDK** (v3.0 trở lên)
+- **Git**
 
-### 1. Clone repository
+---
+
+## ⚡ Quick Start (3 Bước)
+
+### Bước 1: Backend
 ```bash
-git clone <repository-url>
-cd DoAnCNPMNC
+cd backend
+npm install
+node server.js
 ```
 
-### 2. Chạy script tự động
-**Windows:**
-```cmd
-setup_and_test.bat
-```
-
-**Linux/Mac:**
+### Bước 2: Flutter App
 ```bash
-chmod +x setup_and_test.sh
-./setup_and_test.sh
+cd app_user
+flutter pub get
+flutter run
+# Chọn [2]: Chrome
 ```
 
-### 3. Cài đặt PostgreSQL
+### Bước 3: Test
+- App mở trong Chrome browser
+- Login hoặc Register account
+- Tạo đơn giao hàng đầu tiên!
+
+**Done! 🎉**
+
+---
+
+## 🔧 Setup Chi tiết
+
+### 1. Cài đặt PostgreSQL
 - Tải và cài đặt PostgreSQL từ https://www.postgresql.org/download/
-- Tạo database: `CREATE DATABASE food_delivery_db;`
-- Ghi nhớ username/password để cập nhật trong file `.env`
+- Tạo database: `CREATE DATABASE food_delivery_db;` (hoặc `delivery_app`)
+- Ghi nhớ username/password để cập nhật trong file `config.env`
 
-### 4. Cập nhật cấu hình
-Chỉnh sửa file `backend/.env`:
-```
+### 2. Cấu hình Backend
+Tạo/Chỉnh sửa file `backend/config.env`:
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=food_delivery_db
 DB_USER=postgres
-DB_PASSWORD=your_password
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+DB_PASSWORD=your_password_here
+JWT_SECRET=your-secret-key-change-this
+PORT=3000
 ```
 
-### 5. Chạy hệ thống
-
-**Backend:**
+### 3. Cài đặt Backend Dependencies
 ```bash
 cd backend
-npm start
+npm install
+```
+
+### 4. Chạy Backend
+```bash
+node server.js
+```
+
+**Chờ thấy:**
+```
+✅ Connected to PostgreSQL database
+✅ Database tables created successfully
+🚀 Server is running on http://localhost:3000
 ```
 
 **Web Admin:**

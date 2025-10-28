@@ -108,6 +108,9 @@ const createOrder = async (req, res) => {
 // Get user's orders
 const getUserOrders = async (req, res) => {
   try {
+    console.log('getUserOrders - User ID:', req.user?.id);
+    console.log('getUserOrders - Query params:', req.query);
+    
     const { page = 1, limit = 10, status } = req.query;
     const offset = (page - 1) * limit;
 
@@ -129,7 +132,12 @@ const getUserOrders = async (req, res) => {
     query += ` ORDER BY o.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     queryParams.push(limit, offset);
 
+    console.log('getUserOrders - Executing query:', query);
+    console.log('getUserOrders - Query params:', queryParams);
+
     const result = await pool.query(query, queryParams);
+
+    console.log('getUserOrders - Found orders:', result.rows.length);
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) FROM orders WHERE user_id = $1';
@@ -152,6 +160,7 @@ const getUserOrders = async (req, res) => {
       delivery_fee: parseFloat(order.delivery_fee),
       status: order.status,
       delivery_status: order.delivery_status,
+      pickup_address: order.pickup_address,
       delivery_address: order.delivery_address,
       delivery_phone: order.delivery_phone,
       notes: order.notes,
@@ -168,16 +177,18 @@ const getUserOrders = async (req, res) => {
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(totalOrders / limit),
-          total_orders,
+          total_orders: totalOrders,
           limit: parseInt(limit)
         }
       }
     });
   } catch (error) {
     console.error('Get user orders error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       status: 'error',
-      message: 'Internal server error'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
@@ -357,10 +368,206 @@ const getOrderStatistics = async (req, res) => {
   }
 };
 
+// Cancel order with validation
+const cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason, cancel_type } = req.body;
+
+    // Validate cancellation reason
+    if (!reason || reason.trim().length < 5) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cancellation reason is required (minimum 5 characters)'
+      });
+    }
+
+    // Validate cancel_type
+    const validCancelTypes = ['customer_request', 'out_of_stock', 'wrong_address', 'duplicate_order', 'change_mind', 'other'];
+    if (!cancel_type || !validCancelTypes.includes(cancel_type)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Cancel type must be one of: ${validCancelTypes.join(', ')}`
+      });
+    }
+
+    // Get order details
+    const orderResult = await pool.query(
+      'SELECT * FROM orders WHERE id = $1 AND user_id = $2',
+      [orderId, req.user.id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Order not found or you do not have permission to cancel this order'
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    // Validation rules for cancellation
+    const cannotCancelStatuses = ['delivered', 'cancelled'];
+    if (cannotCancelStatuses.includes(order.status)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Cannot cancel order with status: ${order.status}`,
+        current_status: order.status
+      });
+    }
+
+    // Check if order is too old to cancel (e.g., more than 30 minutes for pending/processing)
+    const orderAge = Date.now() - new Date(order.created_at).getTime();
+    const thirtyMinutes = 30 * 60 * 1000;
+    
+    if (order.status === 'shipped' || order.status === 'in_transit') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot cancel order that is already being delivered. Please contact support.',
+        current_status: order.status
+      });
+    }
+
+    // Additional validation: if order is processing for more than 30 mins, require admin approval
+    if (order.status === 'processing' && orderAge > thirtyMinutes) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'This order has been processing for too long. Please contact support to cancel.',
+        current_status: order.status,
+        requires_support: true
+      });
+    }
+
+    // Begin transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Update order status to cancelled
+      const updateResult = await client.query(
+        `UPDATE orders 
+         SET status = 'cancelled', 
+             updated_at = CURRENT_TIMESTAMP,
+             cancellation_reason = $1,
+             cancellation_type = $2,
+             cancelled_at = CURRENT_TIMESTAMP,
+             cancelled_by = $3
+         WHERE id = $4
+         RETURNING *`,
+        [reason, cancel_type, req.user.id, orderId]
+      );
+
+      const cancelledOrder = updateResult.rows[0];
+
+      // Add to status history
+      await client.query(
+        'INSERT INTO order_status_history (order_id, status, notes) VALUES ($1, $2, $3)',
+        [orderId, 'cancelled', `Order cancelled by customer. Reason: ${reason} (${cancel_type})`]
+      );
+
+      // Update delivery tracking status
+      await client.query(
+        'UPDATE delivery_tracking SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE order_id = $2',
+        ['cancelled', orderId]
+      );
+
+      // If payment was made, initiate refund (placeholder for payment integration)
+      // TODO: Integrate with payment gateway for actual refund
+      if (cancelledOrder.payment_status === 'paid') {
+        await client.query(
+          `UPDATE orders 
+           SET refund_status = 'pending', 
+               refund_initiated_at = CURRENT_TIMESTAMP 
+           WHERE id = $1`,
+          [orderId]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      res.json({
+        status: 'success',
+        message: 'Order cancelled successfully',
+        data: {
+          order: {
+            id: cancelledOrder.id,
+            order_number: cancelledOrder.order_number,
+            status: cancelledOrder.status,
+            cancellation_reason: cancelledOrder.cancellation_reason,
+            cancellation_type: cancelledOrder.cancellation_type,
+            cancelled_at: cancelledOrder.cancelled_at,
+            refund_status: cancelledOrder.refund_status || null,
+            updated_at: cancelledOrder.updated_at
+          }
+        }
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get cancellation statistics (for admin)
+const getCancellationStats = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let query = 'SELECT cancellation_type, COUNT(*) as count FROM orders WHERE status = $1';
+    const params = ['cancelled'];
+
+    if (startDate && endDate) {
+      query += ' AND cancelled_at BETWEEN $2 AND $3';
+      params.push(startDate, endDate);
+    }
+
+    query += ' GROUP BY cancellation_type ORDER BY count DESC';
+
+    const result = await pool.query(query, params);
+
+    // Get total cancelled orders
+    const totalResult = await pool.query(
+      'SELECT COUNT(*) FROM orders WHERE status = $1',
+      ['cancelled']
+    );
+
+    res.json({
+      status: 'success',
+      data: {
+        total_cancelled: parseInt(totalResult.rows[0].count),
+        by_type: result.rows.map(row => ({
+          type: row.cancellation_type,
+          count: parseInt(row.count)
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get cancellation stats error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   getUserOrders,
   getOrderDetails,
   updateOrderStatus,
+  cancelOrder,
+  getCancellationStats,
   getOrderStatistics
 };

@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: MaterialApp(
-        title: 'Food Delivery App',
+        title: 'Lalamove Express',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.orange,
@@ -45,11 +45,13 @@ class MyApp extends StatelessWidget {
             seedColor: AppColors.primary,
             brightness: Brightness.light,
           ),
+          scaffoldBackgroundColor: AppColors.background,
           useMaterial3: true,
           appBarTheme: const AppBarTheme(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
+            centerTitle: true,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
@@ -59,11 +61,19 @@ class MyApp extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.symmetric(vertical: 16),
+              elevation: 2,
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.lightGrey),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.lightGrey),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -77,10 +87,7 @@ class MyApp extends StatelessWidget {
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const HomeScreen(),
           '/orders': (context) => const OrdersScreen(),
-          '/order-details': (context) {
-            final orderId = ModalRoute.of(context)!.settings.arguments as int;
-            return OrderDetailsScreen(orderId: orderId);
-          },
+          // Order details now navigated directly from OrdersScreen with MaterialPageRoute
           '/create-order': (context) => const CreateOrderScreen(),
           '/tracking': (context) => const TrackingScreen(),
           '/profile': (context) => const ProfileScreen(),

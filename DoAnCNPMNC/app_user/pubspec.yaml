@@ -20,7 +20,8 @@ dependencies:
   # Socket.IO for real-time updates
   socket_io_client: ^2.0.3+1
   # Maps and location
-  google_maps_flutter: ^2.5.3
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
   geolocator: ^10.1.0
   # UI components
   flutter_svg: ^2.0.9

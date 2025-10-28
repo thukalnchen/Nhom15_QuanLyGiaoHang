@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AppColors {
-  static const Color primary = Color(0xFF6366F1);
-  static const Color secondary = Color(0xFF8B5CF6);
+  // Lalamove brand colors
+  static const Color primary = Color(0xFFF26522); // Lalamove Orange
+  static const Color primaryDark = Color(0xFFD64F0A);
+  static const Color secondary = Color(0xFF2C3E50);
   static const Color success = Color(0xFF10B981);
   static const Color warning = Color(0xFFF59E0B);
   static const Color danger = Color(0xFFEF4444);
@@ -10,12 +13,18 @@ class AppColors {
   static const Color light = Color(0xFFF8FAFC);
   static const Color grey = Color(0xFF6B7280);
   static const Color lightGrey = Color(0xFFF3F4F6);
+  static const Color background = Color(0xFFFAFAFA);
 }
 
 class AppConstants {
-  // Use 10.0.2.2 for Android Emulator, localhost for Web/iOS
-  static const String apiBaseUrl = 'http://10.0.2.2:3000/api';
-  static const String socketUrl = 'http://10.0.2.2:3000';
+  // Auto-detect platform: localhost for Web, 10.0.2.2 for Android Emulator
+  static final String apiBaseUrl = kIsWeb 
+      ? 'http://localhost:3000/api'  // Web browser
+      : 'http://10.0.2.2:3000/api';   // Android Emulator
+  
+  static final String socketUrl = kIsWeb
+      ? 'http://localhost:3000'       // Web browser
+      : 'http://10.0.2.2:3000';        // Android Emulator
   
   // API Endpoints
   static const String loginEndpoint = '/auth/login';
@@ -43,8 +52,8 @@ class AppConstants {
 }
 
 class AppTexts {
-  static const String appName = 'Food Delivery';
-  static const String welcomeMessage = 'Chào mừng đến với Food Delivery';
+  static const String appName = 'Lalamove Express';
+  static const String welcomeMessage = 'Giao hàng nhanh - An toàn - Tiện lợi';
   static const String loginTitle = 'Đăng nhập';
   static const String registerTitle = 'Đăng ký';
   static const String emailHint = 'Nhập email của bạn';
@@ -57,9 +66,9 @@ class AppTexts {
   static const String forgotPassword = 'Quên mật khẩu?';
   static const String noAccount = 'Chưa có tài khoản?';
   static const String hasAccount = 'Đã có tài khoản?';
-  static const String createOrder = 'Tạo đơn hàng';
+  static const String createOrder = 'Tạo đơn giao hàng';
   static const String myOrders = 'Đơn hàng của tôi';
-  static const String tracking = 'Theo dõi giao hàng';
+  static const String tracking = 'Theo dõi đơn hàng';
   static const String profile = 'Hồ sơ';
   static const String logout = 'Đăng xuất';
   static const String loading = 'Đang tải...';
@@ -77,32 +86,43 @@ class AppTexts {
   static const String previous = 'Trước';
   static const String finish = 'Hoàn thành';
   static const String orderNumber = 'Mã đơn hàng';
-  static const String restaurantName = 'Tên nhà hàng';
+  static const String senderName = 'Người gửi';
   static const String totalAmount = 'Tổng tiền';
   static const String orderStatus = 'Trạng thái đơn hàng';
   static const String deliveryStatus = 'Trạng thái giao hàng';
-  static const String orderDate = 'Ngày đặt hàng';
+  static const String orderDate = 'Ngày tạo đơn';
+  static const String pickupAddress = 'Địa chỉ lấy hàng';
   static const String deliveryAddress = 'Địa chỉ giao hàng';
-  static const String deliveryPhone = 'Số điện thoại';
+  static const String deliveryPhone = 'Số điện thoại người nhận';
+  static const String senderPhone = 'Số điện thoại người gửi';
   static const String notes = 'Ghi chú';
-  static const String items = 'Sản phẩm';
+  static const String packages = 'Kiện hàng';
   static const String quantity = 'Số lượng';
+  static const String weight = 'Khối lượng';
   static const String price = 'Giá';
   static const String subtotal = 'Tạm tính';
   static const String deliveryFee = 'Phí giao hàng';
   static const String total = 'Tổng cộng';
-  static const String addItem = 'Thêm sản phẩm';
-  static const String removeItem = 'Xóa sản phẩm';
-  static const String selectRestaurant = 'Chọn nhà hàng';
-  static const String enterRestaurantName = 'Nhập tên nhà hàng';
-  static const String enterItemName = 'Nhập tên sản phẩm';
-  static const String enterPrice = 'Nhập giá';
+  static const String addPackage = 'Thêm kiện hàng';
+  static const String addItem = 'Thêm kiện hàng'; // Alias for backward compatibility
+  static const String removePackage = 'Xóa kiện hàng';
+  static const String selectSender = 'Chọn người gửi';
+  static const String enterSenderName = 'Nhập tên người gửi';
+  static const String enterPackageName = 'Nhập tên kiện hàng';
+  static const String enterPrice = 'Nhập giá trị hàng hóa';
   static const String enterQuantity = 'Nhập số lượng';
+  static const String enterWeight = 'Nhập khối lượng (kg)';
+  static const String vehicleType = 'Loại xe';
+  static const String distance = 'Khoảng cách';
+  static const String estimatedTime = 'Thời gian dự kiến';
+  static const String driverInfo = 'Thông tin tài xế';
+  static const String driverName = 'Tên tài xế';
+  static const String driverPhone = 'SĐT tài xế';
+  static const String vehicleNumber = 'Biển số xe';
   static const String enterDeliveryAddress = 'Nhập địa chỉ giao hàng';
   static const String enterDeliveryPhone = 'Nhập số điện thoại';
   static const String enterNotes = 'Nhập ghi chú (tùy chọn)';
   static const String realTimeTracking = 'Theo dõi thời gian thực';
-  static const String estimatedTime = 'Thời gian dự kiến';
   static const String currentLocation = 'Vị trí hiện tại';
   static const String deliveryRoute = 'Tuyến đường giao hàng';
   static const String mapView = 'Xem bản đồ';

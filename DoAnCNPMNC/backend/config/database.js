@@ -63,6 +63,72 @@ const createTables = async () => {
       )
     `);
 
+    // Add cancellation columns if they don't exist
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cancellation_reason TEXT;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cancellation_type VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cancelled_at TIMESTAMP;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cancelled_by INTEGER REFERENCES users(id);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'pending';
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN payment_method VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN refund_status VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN refund_initiated_at TIMESTAMP;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN pickup_address TEXT;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN vehicle_type VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+      END $$;
+    `);
+
     // Order status history table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS order_status_history (

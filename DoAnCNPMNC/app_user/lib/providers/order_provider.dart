@@ -149,6 +149,81 @@ class OrderProvider with ChangeNotifier {
     return false;
   }
   
+  Future<bool> cancelOrder({
+    required int orderId,
+    required String reason,
+    required String cancelType,
+    String? token,
+  }) async {
+    // Get token from AuthProvider if not provided
+    if (token == null) {
+      _error = 'Vui lòng đăng nhập lại';
+      notifyListeners();
+      return false;
+    }
+    
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.ordersEndpoint}/$orderId/cancel'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'reason': reason,
+          'cancel_type': cancelType,
+        }),
+      );
+      
+      final data = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        if (data['status'] == 'success') {
+          // Update local order if it's the current order
+          if (_currentOrder != null && _currentOrder!['id'] == orderId) {
+            _currentOrder!['status'] = 'cancelled';
+          }
+          
+          // Update order in list
+          final orderIndex = _orders.indexWhere((order) => order['id'] == orderId);
+          if (orderIndex != -1) {
+            _orders[orderIndex]['status'] = 'cancelled';
+          }
+          
+          _isLoading = false;
+          notifyListeners();
+          return true;
+        } else {
+          _error = data['message'] ?? 'Hủy đơn hàng thất bại';
+        }
+      } else if (response.statusCode == 400) {
+        // Validation error or cannot cancel
+        _error = data['message'] ?? 'Không thể hủy đơn hàng này';
+        
+        // If the error says order is being delivered or requires support
+        if (data['requires_support'] == true) {
+          _error = 'Đơn hàng đã xử lý quá lâu. Vui lòng liên hệ hỗ trợ để hủy.';
+        } else if (data['current_status'] != null) {
+          _error = 'Không thể hủy đơn hàng ở trạng thái: ${data['current_status']}';
+        }
+      } else if (response.statusCode == 404) {
+        _error = 'Không tìm thấy đơn hàng hoặc bạn không có quyền hủy đơn này';
+      } else {
+        _error = data['message'] ?? 'Hủy đơn hàng thất bại';
+      }
+    } catch (e) {
+      _error = 'Lỗi kết nối: ${e.toString()}';
+    }
+    
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+  
   Future<bool> updateOrderStatus(int orderId, String status, String token, {String? notes}) async {
     _isLoading = true;
     _error = null;
