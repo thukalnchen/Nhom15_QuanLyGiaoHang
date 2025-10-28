@@ -19,7 +19,6 @@ build/
 
 # Backend node_modules
 backend/node_modules/
-backend/package-lock.json
 
 # Local config
 backend/config.env
