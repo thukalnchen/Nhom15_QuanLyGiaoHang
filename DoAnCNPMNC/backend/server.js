@@ -10,6 +10,8 @@ const authRoutes = require('./routes/auth');
 const orderRoutes = require('./routes/orders');
 const userRoutes = require('./routes/users');
 const trackingRoutes = require('./routes/tracking');
+const adminRoutes = require('./routes/admin');
+const warehouseRoutes = require('./routes/warehouse');
 const { connectDB } = require('./config/database');
 const { authenticateToken } = require('./middleware/auth');
 
@@ -71,6 +73,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/orders', authenticateToken, orderRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/tracking', authenticateToken, trackingRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/warehouse', warehouseRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

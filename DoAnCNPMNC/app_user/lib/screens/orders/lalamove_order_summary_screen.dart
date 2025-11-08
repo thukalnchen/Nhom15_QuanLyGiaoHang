@@ -45,7 +45,12 @@ class _LalamoveOrderSummaryScreenState extends State<LalamoveOrderSummaryScreen>
   }
 
   Future<void> _submitOrder() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('🔵 _submitOrder: Confirm Order clicked!');
+    
+    if (!_formKey.currentState!.validate()) {
+      print('❌ _submitOrder: Form validation failed');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -55,38 +60,60 @@ class _LalamoveOrderSummaryScreenState extends State<LalamoveOrderSummaryScreen>
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
-      final orderData = {
-        'pickupLocation': widget.pickupLocation,
-        'dropoffLocation': widget.dropoffLocation,
-        'vehicleType': widget.vehicle.id,
-        'vehicleName': widget.vehicle.name,
-        'distance': widget.distanceData['distance']['value'],
-        'distanceText': widget.distanceData['distance']['text'],
-        'duration': widget.distanceData['duration']['value'],
-        'durationText': widget.distanceData['duration']['text'],
-        'services': widget.selectedServices,
-        'extraWeight': widget.extraWeight,
-        'pricing': widget.priceData,
-        'recipientName': _recipientNameController.text.trim(),
-        'recipientPhone': _recipientPhoneController.text.trim(),
-        'notes': _notesController.text.trim(),
-      };
-
-      // TODO: Call API to create order
-      // final success = await orderProvider.createDeliveryOrder(orderData);
+      print('✅ _submitOrder: Preparing order data...');
+      print('   Pickup: ${widget.pickupLocation['address']}');
+      print('   Dropoff: ${widget.dropoffLocation['address']}');
+      print('   Vehicle: ${widget.vehicle.name}');
+      print('   Total: ${widget.priceData['total']}đ');
+      
+      // Call API to create order using OrderProvider.createOrder
+      final success = await orderProvider.createOrder(
+        restaurantName: widget.pickupLocation['address'] ?? 'Pickup Location',
+        items: [
+          {
+            'name': 'Delivery Service - ${widget.vehicle.name}',
+            'quantity': 1,
+            'price': widget.priceData['total'] ?? 0,
+          }
+        ],
+        totalAmount: (widget.priceData['total'] ?? 0).toDouble(),
+        deliveryAddress: widget.dropoffLocation['address'] ?? '',
+        deliveryFee: (widget.priceData['baseFare'] ?? 0).toDouble(),
+        deliveryPhone: _recipientPhoneController.text.trim(),
+        notes: _notesController.text.trim().isEmpty 
+            ? 'Distance: ${widget.distanceData['distance']['text']}, Duration: ${widget.distanceData['duration']['text']}'
+            : _notesController.text.trim(),
+        token: authProvider.token,
+      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order created successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        
-        // Navigate back to home
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        if (success) {
+          print('✅ _submitOrder: Order created successfully!');
+          
+          // Reload orders
+          await orderProvider.getOrders(token: authProvider.token);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order created successfully!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          
+          // Navigate back to home
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        } else {
+          print('❌ _submitOrder: Order creation failed');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(orderProvider.error ?? 'Failed to create order'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
       }
     } catch (e) {
+      print('❌ _submitOrder: Exception - $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

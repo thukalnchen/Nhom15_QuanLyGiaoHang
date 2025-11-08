@@ -126,6 +126,67 @@ const createTables = async () => {
         EXCEPTION
           WHEN duplicate_column THEN NULL;
         END;
+        
+        -- Warehouse intake fields
+        BEGIN
+          ALTER TABLE orders ADD COLUMN package_size VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN package_type VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN weight DECIMAL(10,2);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN description TEXT;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN images JSONB;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN warehouse_id INTEGER;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN warehouse_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN intake_staff_id INTEGER REFERENCES users(id);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN intake_staff_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN received_at TIMESTAMP;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
       END $$;
     `);
 

@@ -182,12 +182,17 @@
                 Food Delivery Admin
             </a>
             <div class="navbar-nav ms-auto">
+                <span class="navbar-text text-white me-3" id="demo-badge" style="display: none;">
+                    <span class="badge bg-warning text-dark">
+                        <i class="fas fa-flask me-1"></i>DEMO MODE
+                    </span>
+                </span>
                 <div class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user-circle me-1"></i>
-                        Admin
+                        <span id="user-name">Admin</span>
                     </a>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
                     </ul>
                 </div>
