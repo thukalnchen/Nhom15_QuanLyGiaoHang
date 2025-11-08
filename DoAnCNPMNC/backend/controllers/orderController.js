@@ -16,12 +16,20 @@ const createOrderSchema = Joi.object({
   delivery_fee: Joi.number().min(0).default(0),
   delivery_address: Joi.string().min(10).required(),
   delivery_phone: Joi.string().optional(),
-  notes: Joi.string().optional()
+  notes: Joi.string().optional(),
+  // Customer estimates (optional) - New fields
+  customer_estimated_size: Joi.string().valid('small', 'medium', 'large', 'extra_large').optional(),
+  customer_requested_vehicle: Joi.string().valid('bike', 'car', 'van', 'truck').optional()
 });
 
 // Create new order
 const createOrder = async (req, res) => {
   try {
+    console.log('=== CREATE ORDER ===');
+    console.log('User ID:', req.user?.id);
+    console.log('User Email:', req.user?.email);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     // Validate input
     const { error, value } = createOrderSchema.validate(req.body);
     if (error) {
@@ -38,7 +46,9 @@ const createOrder = async (req, res) => {
       delivery_fee = 0,
       delivery_address,
       delivery_phone,
-      notes
+      notes,
+      customer_estimated_size,
+      customer_requested_vehicle
     } = value;
 
     // Generate unique order number
@@ -47,8 +57,9 @@ const createOrder = async (req, res) => {
     // Create order
     const result = await pool.query(
       `INSERT INTO orders (order_number, user_id, restaurant_name, items, total_amount, 
-                          delivery_fee, delivery_address, delivery_phone, notes, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+                          delivery_fee, delivery_address, delivery_phone, notes, status,
+                          customer_estimated_size, customer_requested_vehicle)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11)
        RETURNING *`,
       [
         orderNumber,
@@ -59,11 +70,18 @@ const createOrder = async (req, res) => {
         delivery_fee,
         delivery_address,
         delivery_phone,
-        notes
+        notes,
+        customer_estimated_size || null,
+        customer_requested_vehicle || null
       ]
     );
 
     const order = result.rows[0];
+    
+    console.log('✅ Order created successfully!');
+    console.log('   Order Number:', order.order_number);
+    console.log('   User ID:', order.user_id);
+    console.log('   Status:', order.status);
 
     // Add initial status to history
     await pool.query(

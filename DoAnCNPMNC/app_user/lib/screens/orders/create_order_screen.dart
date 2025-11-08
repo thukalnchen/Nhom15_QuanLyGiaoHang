@@ -82,8 +82,15 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   Future<void> _createOrder() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('🔵 _createOrder: Button clicked! Function called!');
+    
+    if (!_formKey.currentState!.validate()) {
+      print('❌ _createOrder: Form validation failed');
+      return;
+    }
+    
     if (_items.isEmpty) {
+      print('❌ _createOrder: No items in order');
       Fluttertoast.showToast(
         msg: 'Vui lòng thêm ít nhất một sản phẩm',
         backgroundColor: AppColors.danger,
@@ -91,6 +98,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       );
       return;
     }
+    
+    print('✅ _createOrder: Validation passed, proceeding...');
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
@@ -116,7 +125,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         backgroundColor: AppColors.success,
         textColor: Colors.white,
       );
-      Navigator.pop(context);
+      
+      // Reload orders sau khi tạo thành công
+      await orderProvider.getOrders(token: authProvider.token);
+      
+      if (!mounted) return;
+      Navigator.pop(context, true); // Return true to indicate success
     } else {
       Fluttertoast.showToast(
         msg: orderProvider.error ?? 'Tạo đơn hàng thất bại',

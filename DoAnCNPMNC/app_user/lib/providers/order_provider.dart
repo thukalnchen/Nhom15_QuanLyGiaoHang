@@ -24,7 +24,13 @@ class OrderProvider with ChangeNotifier {
     String? notes,
     String? token,
   }) async {
-    if (token == null) return false;
+    if (token == null) {
+      print('❌ createOrder: Token is null');
+      return false;
+    }
+    
+    print('📡 createOrder: Creating order...');
+    print('   Token: ${token.substring(0, 20)}...');
     
     _isLoading = true;
     _error = null;
@@ -48,21 +54,28 @@ class OrderProvider with ChangeNotifier {
         }),
       );
       
+      print('📥 createOrder: Status ${response.statusCode}');
+      print('   Response: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+      
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
+        print('✅ createOrder: Success!');
         if (data['status'] == 'success') {
           _isLoading = false;
           notifyListeners();
           return true;
         } else {
           _error = data['message'] ?? 'Tạo đơn hàng thất bại';
+          print('❌ createOrder: ${_error}');
         }
       } else {
         final data = json.decode(response.body);
         _error = data['message'] ?? 'Tạo đơn hàng thất bại';
+        print('❌ createOrder: HTTP ${response.statusCode} - ${_error}');
       }
     } catch (e) {
       _error = 'Lỗi kết nối: ${e.toString()}';
+      print('❌ createOrder: Exception - ${_error}');
     }
     
     _isLoading = false;
@@ -71,7 +84,10 @@ class OrderProvider with ChangeNotifier {
   }
   
   Future<bool> getOrders({String? token, String? status}) async {
-    if (token == null) return false;
+    if (token == null) {
+      print('❌ getOrders: Token is null');
+      return false;
+    }
     
     _isLoading = true;
     _error = null;
@@ -83,6 +99,8 @@ class OrderProvider with ChangeNotifier {
         url += '?status=$status';
       }
       
+      print('📡 getOrders: Fetching from $url');
+      
       final response = await http.get(
         Uri.parse(url),
         headers: {
@@ -90,22 +108,30 @@ class OrderProvider with ChangeNotifier {
         },
       );
       
+      print('📥 getOrders: Status ${response.statusCode}');
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('📦 getOrders: Response data: ${data['status']}');
+        
         if (data['status'] == 'success') {
           _orders = List<Map<String, dynamic>>.from(data['data']['orders']);
+          print('✅ getOrders: Loaded ${_orders.length} orders');
           _isLoading = false;
           notifyListeners();
           return true;
         } else {
           _error = data['message'] ?? 'Lấy danh sách đơn hàng thất bại';
+          print('❌ getOrders: Error - $_error');
         }
       } else {
         final data = json.decode(response.body);
         _error = data['message'] ?? 'Lấy danh sách đơn hàng thất bại';
+        print('❌ getOrders: HTTP ${response.statusCode} - $_error');
       }
     } catch (e) {
       _error = 'Lỗi kết nối: ${e.toString()}';
+      print('❌ getOrders: Exception - $_error');
     }
     
     _isLoading = false;

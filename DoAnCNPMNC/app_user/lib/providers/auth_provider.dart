@@ -34,6 +34,8 @@ class AuthProvider with ChangeNotifier {
   }
   
   Future<bool> login(String email, String password) async {
+    print('🔐 Login attempt: $email');
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -48,12 +50,19 @@ class AuthProvider with ChangeNotifier {
         }),
       );
       
+      print('📥 Login response: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success') {
           _token = data['data']['token'];
           _user = data['data']['user'];
           _isAuthenticated = true;
+          
+          print('✅ Login successful!');
+          print('   User ID: ${_user!['id']}');
+          print('   Email: ${_user!['email']}');
+          print('   Token: ${_token!.substring(0, 20)}...');
           
           await prefs.setString(AppConstants.tokenKey, _token!);
           await prefs.setString(AppConstants.userKey, json.encode(_user));
@@ -171,6 +180,9 @@ class AuthProvider with ChangeNotifier {
   }
   
   Future<void> logout() async {
+    print('🚪 Logging out...');
+    print('   Clearing user: ${_user?['email']}');
+    
     _token = null;
     _user = null;
     _isAuthenticated = false;
@@ -178,6 +190,8 @@ class AuthProvider with ChangeNotifier {
     
     await prefs.remove(AppConstants.tokenKey);
     await prefs.remove(AppConstants.userKey);
+    
+    print('✅ Logout complete - all data cleared');
     
     notifyListeners();
   }

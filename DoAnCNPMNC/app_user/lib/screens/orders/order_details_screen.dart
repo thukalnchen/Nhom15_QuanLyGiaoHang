@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../utils/constants.dart';
 
 class OrderDetailsScreen extends StatelessWidget {
@@ -100,6 +101,58 @@ class OrderDetailsScreen extends StatelessWidget {
                     _buildInfoRow('Khoảng cách', '${order['distance']} km'),
                   if (order['duration'] != null)
                     _buildInfoRow('Thời gian dự kiến', order['duration']),
+                ],
+              ),
+            ),
+
+            // QR Code Section - For warehouse staff to scan
+            _buildSection(
+              title: 'Mã QR đơn hàng',
+              icon: Icons.qr_code_2,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.lightGrey),
+                    ),
+                    child: QrImageView(
+                      data: order['order_code'] ?? order['order_number'] ?? '',
+                      version: QrVersions.auto,
+                      size: 200.0,
+                      backgroundColor: Colors.white,
+                      errorCorrectionLevel: QrErrorCorrectLevel.H,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      order['order_code'] ?? order['order_number'] ?? '',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '📱 Quét mã này tại kho để nhận hàng',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
