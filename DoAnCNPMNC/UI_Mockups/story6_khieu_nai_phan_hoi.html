@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #6 - Gửi khiếu nại hoặc phản hồi về đơn hàng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .header-title h2 {
+            font-size: 22px;
+        }
+        .screen-content {
+            padding: 25px 20px 40px;
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        .order-info-box {
+            background: #f8f9fa;
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border: 2px solid #e0e0e0;
+        }
+        .order-code {
+            font-size: 16px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .info-row .label {
+            color: #666;
+        }
+        .info-row .value {
+            font-weight: 600;
+            color: #333;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        .required {
+            color: red;
+        }
+        .form-group select,
+        .form-group textarea,
+        .form-group input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        .form-group select:focus,
+        .form-group textarea:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .issue-types {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .issue-type {
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .issue-type:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .issue-type.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+        }
+        .issue-type .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .issue-type .label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+        }
+        .upload-photos {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .photo-upload {
+            aspect-ratio: 1;
+            border: 2px dashed #d0d0d0;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        .photo-upload:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .photo-upload .icon {
+            font-size: 32px;
+            margin-bottom: 4px;
+            color: #999;
+        }
+        .photo-upload .text {
+            font-size: 11px;
+            color: #999;
+        }
+        .photo-preview {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            position: relative;
+        }
+        .photo-preview .remove {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 24px;
+            height: 24px;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .info-note {
+            background: #fff3cd;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #856404;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        .rating-stars {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .star {
+            font-size: 48px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #d0d0d0;
+        }
+        .star:hover,
+        .star.active {
+            color: #ffc107;
+            transform: scale(1.1);
+        }
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            margin: 40px auto 30px;
+            background: #28a745;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+            color: white;
+        }
+        .success-message {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .success-message h3 {
+            font-size: 24px;
+            color: #28a745;
+            margin-bottom: 12px;
+        }
+        .success-message p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+        .complaint-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .summary-row .label {
+            color: #666;
+        }
+        .summary-row .value {
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Screen 1: Chọn loại khiếu nại -->
+        <div class="screen">
+            <div class="screen-title">STORY #6.1 - GỬI KHIẾU NẠI</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Gửi khiếu nại</h2>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="order-info-box">
+                    <div class="order-code">📦 #DH2024110901</div>
+                    <div class="info-row">
+                        <span class="label">Ngày đặt:</span>
+                        <span class="value">09/11/2024 14:30</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Trạng thái:</span>
+                        <span class="value" style="color: #28a745;">✓ Đã giao</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Tài xế:</span>
+                        <span class="value">Nguyễn Văn Tài</span>
+                    </div>
+                </div>
+
+                <div class="section-title">
+                    ⚠️ Vấn đề của bạn
+                </div>
+
+                <div class="issue-types">
+                    <div class="issue-type selected">
+                        <div class="icon">📦</div>
+                        <div class="label">Hàng bị hư hỏng</div>
+                    </div>
+                    <div class="issue-type">
+                        <div class="icon">❌</div>
+                        <div class="label">Thiếu hàng</div>
+                    </div>
+                    <div class="issue-type">
+                        <div class="icon">⏰</div>
+                        <div class="label">Giao trễ</div>
+                    </div>
+                    <div class="issue-type">
+                        <div class="icon">😠</div>
+                        <div class="label">Thái độ tài xế</div>
+                    </div>
+                    <div class="issue-type">
+                        <div class="icon">📍</div>
+                        <div class="label">Sai địa chỉ</div>
+                    </div>
+                    <div class="issue-type">
+                        <div class="icon">💰</div>
+                        <div class="label">Vấn đề thanh toán</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Mô tả chi tiết <span class="required">*</span></label>
+                    <textarea placeholder="Vui lòng mô tả chi tiết vấn đề bạn gặp phải...">Hàng nhận được bị móp méo, có vẻ không được đóng gói cẩn thận trong quá trình vận chuyển.</textarea>
+                </div>
+
+                <div class="section-title" style="margin-top: 25px;">
+                    📸 Hình ảnh minh chứng
+                </div>
+                <div class="info-note">
+                    💡 Vui lòng cung cấp hình ảnh để chúng tôi xử lý nhanh hơn (Tối đa 5 ảnh)
+                </div>
+
+                <div class="upload-photos">
+                    <div class="photo-preview">
+                        📦
+                        <div class="remove">×</div>
+                    </div>
+                    <div class="photo-preview">
+                        📦
+                        <div class="remove">×</div>
+                    </div>
+                    <div class="photo-upload">
+                        <div class="icon">📷</div>
+                        <div class="text">Thêm ảnh</div>
+                    </div>
+                </div>
+
+                <button class="btn-primary">Gửi khiếu nại</button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Đánh giá đơn hàng -->
+        <div class="screen">
+            <div class="screen-title">STORY #6.2 - ĐÁNH GIÁ ĐƠN HÀNG</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Đánh giá</h2>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="order-info-box">
+                    <div class="order-code">📦 #DH2024110801</div>
+                    <div class="info-row">
+                        <span class="label">Ngày giao:</span>
+                        <span class="value">08/11/2024 17:30</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Tài xế:</span>
+                        <span class="value">Trần Minh Đức</span>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <h3 style="font-size: 20px; color: #333; margin-bottom: 15px;">
+                        Bạn đánh giá thế nào?
+                    </h3>
+                    <p style="font-size: 14px; color: #999; margin-bottom: 20px;">
+                        Đánh giá của bạn giúp chúng tôi cải thiện dịch vụ
+                    </p>
+                    <div class="rating-stars">
+                        <span class="star active">⭐</span>
+                        <span class="star active">⭐</span>
+                        <span class="star active">⭐</span>
+                        <span class="star active">⭐</span>
+                        <span class="star active">⭐</span>
+                    </div>
+                    <p style="font-size: 16px; font-weight: 600; color: #667eea; margin-top: 10px;">
+                        Xuất sắc!
+                    </p>
+                </div>
+
+                <div class="section-title" style="margin-top: 35px;">
+                    💬 Nhận xét của bạn
+                </div>
+
+                <div class="form-group">
+                    <label>Dịch vụ giao hàng</label>
+                    <textarea placeholder="Nhận xét về dịch vụ giao hàng...">Giao hàng rất nhanh, đúng giờ. Tài xế nhiệt tình và lịch sự.</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Chất lượng đóng gói</label>
+                    <textarea placeholder="Nhận xét về cách đóng gói...">Hàng được đóng gói cẩn thận, không bị hư hỏng.</textarea>
+                </div>
+
+                <div class="section-title" style="margin-top: 25px;">
+                    📸 Hình ảnh (không bắt buộc)
+                </div>
+
+                <div class="upload-photos">
+                    <div class="photo-upload">
+                        <div class="icon">📷</div>
+                        <div class="text">Thêm ảnh</div>
+                    </div>
+                    <div class="photo-upload">
+                        <div class="icon">📷</div>
+                        <div class="text">Thêm ảnh</div>
+                    </div>
+                    <div class="photo-upload">
+                        <div class="icon">📷</div>
+                        <div class="text">Thêm ảnh</div>
+                    </div>
+                </div>
+
+                <button class="btn-primary">Gửi đánh giá</button>
+            </div>
+        </div>
+
+        <!-- Screen 3: Xác nhận gửi thành công -->
+        <div class="screen">
+            <div class="screen-title">STORY #6.3 - XÁC NHẬN GỬI KHIẾU NẠI</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <h2 style="margin: 0 auto;">Khiếu nại</h2>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="success-icon">✓</div>
+                <div class="success-message">
+                    <h3>Đã gửi khiếu nại!</h3>
+                    <p>Chúng tôi sẽ xem xét và phản hồi trong vòng 24-48 giờ. Bạn sẽ nhận được thông báo khi có cập nhật.</p>
+                </div>
+
+                <div class="complaint-summary">
+                    <h4 style="font-size: 16px; color: #333; margin-bottom: 15px;">📋 Thông tin khiếu nại</h4>
+                    <div class="summary-row">
+                        <span class="label">Mã khiếu nại:</span>
+                        <span class="value">#KN2024110901</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Đơn hàng:</span>
+                        <span class="value">#DH2024110901</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Loại vấn đề:</span>
+                        <span class="value">Hàng bị hư hỏng</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Thời gian:</span>
+                        <span class="value">09/11/2024 18:45</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Trạng thái:</span>
+                        <span class="value" style="color: #ffc107;">⏳ Đang xử lý</span>
+                    </div>
+                </div>
+
+                <div style="background: #d1ecf1; padding: 15px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #0c5460;">
+                    <p style="font-size: 13px; color: #0c5460; line-height: 1.6;">
+                        💡 <strong>Lưu ý:</strong><br>
+                        • Mọi khiếu nại sẽ được xem xét trong 24-48 giờ<br>
+                        • Bạn có thể theo dõi trạng thái trong mục "Khiếu nại của tôi"<br>
+                        • Chúng tôi sẽ thông báo qua email và app khi có cập nhật
+                    </p>
+                </div>
+
+                <button class="btn-primary">Xem chi tiết khiếu nại</button>
+                <button class="btn-primary" style="background: white; color: #667eea; border: 2px solid #667eea; margin-top: 10px;">
+                    Về danh sách đơn hàng
+                </button>
+
+                <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 12px;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">📞</div>
+                    <div style="font-size: 14px; color: #666; margin-bottom: 8px;">
+                        Cần hỗ trợ khẩn cấp?
+                    </div>
+                    <div style="font-size: 16px; font-weight: 600; color: #667eea;">
+                        Hotline: 1900-xxxx
+                    </div>
+                    <div style="font-size: 12px; color: #999; margin-top: 4px;">
+                        (8:00 - 22:00 hàng ngày)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

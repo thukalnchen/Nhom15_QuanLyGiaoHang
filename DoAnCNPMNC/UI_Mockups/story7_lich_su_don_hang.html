@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #7 - Xem lịch sử đơn hàng đã gửi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .back-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .header-title h2 {
+            font-size: 22px;
+            flex: 1;
+            text-align: center;
+        }
+        .search-icon {
+            font-size: 22px;
+            cursor: pointer;
+        }
+        .screen-content {
+            padding: 0;
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            background: white;
+            position: sticky;
+            top: 100px;
+            z-index: 9;
+        }
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+            color: #999;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .order-card {
+            background: white;
+            margin: 12px;
+            padding: 18px;
+            border-radius: 15px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .order-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+        .order-code {
+            font-size: 16px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-delivering {
+            background: #cfe2ff;
+            color: #084298;
+        }
+        .status-completed {
+            background: #d1f2eb;
+            color: #0f5132;
+        }
+        .status-cancelled {
+            background: #f8d7da;
+            color: #842029;
+        }
+        .order-info {
+            margin-bottom: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .order-info .icon {
+            color: #999;
+            font-size: 16px;
+        }
+        .order-info .text {
+            flex: 1;
+            color: #666;
+        }
+        .order-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px dashed #e0e0e0;
+        }
+        .order-time {
+            font-size: 12px;
+            color: #999;
+        }
+        .order-price {
+            font-size: 16px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .filter-bar {
+            padding: 15px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            position: sticky;
+            top: 145px;
+            z-index: 8;
+        }
+        .filter-select {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            background: white;
+        }
+        .search-box {
+            padding: 15px;
+            background: white;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 80px 40px;
+        }
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        .empty-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .empty-desc {
+            font-size: 14px;
+            color: #999;
+            line-height: 1.6;
+        }
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            padding: 15px;
+            background: white;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 12px 8px;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        .stat-number {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+        }
+        .date-group {
+            padding: 12px 15px;
+            background: #f8f9fa;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .btn-action {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-action:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Screen 1: Danh sách đơn hàng (Tất cả) -->
+        <div class="screen">
+            <div class="screen-title">STORY #7.1 - LỊCH SỬ ĐƠN HÀNG (Tất cả)</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Đơn hàng của tôi</h2>
+                    <span class="search-icon">🔍</span>
+                </div>
+            </div>
+            <div class="tabs">
+                <div class="tab active">Tất cả</div>
+                <div class="tab">Đang giao</div>
+                <div class="tab">Hoàn thành</div>
+                <div class="tab">Đã hủy</div>
+            </div>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-number">24</div>
+                    <div class="stat-label">Tổng đơn</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">Đang giao</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">18</div>
+                    <div class="stat-label">Hoàn thành</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">Đã hủy</div>
+                </div>
+            </div>
+            <div class="filter-bar">
+                <select class="filter-select">
+                    <option>Tất cả loại hàng</option>
+                    <option>Thực phẩm</option>
+                    <option>Quần áo</option>
+                    <option>Điện tử</option>
+                    <option>Khác</option>
+                </select>
+                <select class="filter-select">
+                    <option>Tháng này</option>
+                    <option>Tháng trước</option>
+                    <option>3 tháng</option>
+                    <option>6 tháng</option>
+                    <option>1 năm</option>
+                </select>
+            </div>
+            <div class="screen-content">
+                <!-- Hôm nay -->
+                <div class="date-group">📅 Hôm nay</div>
+
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-code">#DH2024110901</div>
+                        <span class="status-badge status-delivering">🚚 Đang giao</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📦</span>
+                        <span class="text">Thực phẩm (2.5kg)</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📍</span>
+                        <span class="text">456 Lê Văn Việt, Q.9</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">👨</span>
+                        <span class="text">Tài xế: Nguyễn Văn Tài ⭐4.8</span>
+                    </div>
+                    <div class="order-footer">
+                        <span class="order-time">14:30 - 09/11/2024</span>
+                        <span class="order-price">280,000đ</span>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-action primary">Theo dõi</button>
+                        <button class="btn-action">Liên hệ</button>
+                    </div>
+                </div>
+
+                <!-- Hôm qua -->
+                <div class="date-group">📅 Hôm qua</div>
+
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-code">#DH2024110801</div>
+                        <span class="status-badge status-completed">✓ Hoàn thành</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📦</span>
+                        <span class="text">Quần áo (1.2kg)</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📍</span>
+                        <span class="text">789 Trần Hưng Đạo, Q.5</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">👨</span>
+                        <span class="text">Tài xế: Trần Minh Đức ⭐4.9</span>
+                    </div>
+                    <div class="order-footer">
+                        <span class="order-time">16:20 - 08/11/2024</span>
+                        <span class="order-price">150,000đ</span>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-action">Đánh giá</button>
+                        <button class="btn-action">Đặt lại</button>
+                    </div>
+                </div>
+
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-code">#DH2024110802</div>
+                        <span class="status-badge status-cancelled">❌ Đã hủy</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📦</span>
+                        <span class="text">Điện tử (0.8kg)</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📍</span>
+                        <span class="text">321 Võ Văn Tần, Q.3</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">ℹ️</span>
+                        <span class="text" style="color: #dc3545;">Lý do: Khách hàng hủy</span>
+                    </div>
+                    <div class="order-footer">
+                        <span class="order-time">10:15 - 08/11/2024</span>
+                        <span class="order-price" style="text-decoration: line-through; opacity: 0.5;">200,000đ</span>
+                    </div>
+                </div>
+
+                <!-- Tuần trước -->
+                <div class="date-group">📅 Tuần trước</div>
+
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-code">#DH2024110501</div>
+                        <span class="status-badge status-completed">✓ Hoàn thành</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📦</span>
+                        <span class="text">Văn phòng phẩm (3.0kg)</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📍</span>
+                        <span class="text">555 Nguyễn Văn Cừ, Q.5</span>
+                    </div>
+                    <div class="order-footer">
+                        <span class="order-time">14:00 - 05/11/2024</span>
+                        <span class="order-price">320,000đ</span>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-action">Chi tiết</button>
+                        <button class="btn-action">Đặt lại</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: Tìm kiếm đơn hàng -->
+        <div class="screen">
+            <div class="screen-title">STORY #7.2 - TÌM KIẾM ĐƠN HÀNG</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Tìm kiếm đơn hàng</h2>
+                    <span style="width: 24px;"></span>
+                </div>
+            </div>
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="🔍 Tìm theo mã đơn, địa chỉ..." value="Lê Văn Việt">
+            </div>
+            <div class="screen-content">
+                <div style="padding: 15px; font-size: 14px; color: #666;">
+                    Kết quả tìm kiếm: <strong style="color: #667eea;">2 đơn hàng</strong>
+                </div>
+
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-code">#DH2024110901</div>
+                        <span class="status-badge status-delivering">🚚 Đang giao</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📦</span>
+                        <span class="text">Thực phẩm (2.5kg)</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📍</span>
+                        <span class="text" style="background: #ffeb3b40; padding: 2px 4px; border-radius: 3px;">
+                            456 <strong>Lê Văn Việt</strong>, Q.9
+                        </span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">👨</span>
+                        <span class="text">Tài xế: Nguyễn Văn Tài ⭐4.8</span>
+                    </div>
+                    <div class="order-footer">
+                        <span class="order-time">14:30 - 09/11/2024</span>
+                        <span class="order-price">280,000đ</span>
+                    </div>
+                </div>
+
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-code">#DH2024102201</div>
+                        <span class="status-badge status-completed">✓ Hoàn thành</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📦</span>
+                        <span class="text">Thực phẩm tươi (4.5kg)</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="icon">📍</span>
+                        <span class="text" style="background: #ffeb3b40; padding: 2px 4px; border-radius: 3px;">
+                            890 <strong>Lê Văn Việt</strong>, Q.9
+                        </span>
+                    </div>
+                    <div class="order-footer">
+                        <span class="order-time">09:45 - 22/10/2024</span>
+                        <span class="order-price">420,000đ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3: Chi tiết đơn hàng hoàn thành -->
+        <div class="screen">
+            <div class="screen-title">STORY #7.3 - CHI TIẾT ĐƠN HÀNG ĐÃ HOÀN THÀNH</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Chi tiết đơn hàng</h2>
+                </div>
+            </div>
+            <div class="screen-content" style="padding: 20px;">
+                <div style="text-align: center; margin: 30px 0;">
+                    <div style="width: 100px; height: 100px; margin: 0 auto 20px; background: #d1f2eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                        ✓
+                    </div>
+                    <h3 style="font-size: 22px; color: #28a745; margin-bottom: 8px;">
+                        Giao hàng thành công!
+                    </h3>
+                    <p style="font-size: 14px; color: #666;">
+                        Đơn hàng đã được giao vào 08/11/2024
+                    </p>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                    <h4 style="font-size: 16px; color: #333; margin-bottom: 15px;">📦 Thông tin đơn hàng</h4>
+                    <div class="info-row">
+                        <span class="label">Mã đơn:</span>
+                        <span class="value">#DH2024110801</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Loại hàng:</span>
+                        <span class="value">Quần áo (1.2kg)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Thời gian đặt:</span>
+                        <span class="value">08/11/2024 16:20</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Thời gian giao:</span>
+                        <span class="value">08/11/2024 17:30</span>
+                    </div>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                    <h4 style="font-size: 16px; color: #333; margin-bottom: 15px;">👨 Tài xế</h4>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white;">
+                            👨
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">
+                                Trần Minh Đức
+                            </div>
+                            <div style="font-size: 13px; color: #ffc107;">
+                                ⭐⭐⭐⭐⭐ 4.9 (320 đánh giá)
+                            </div>
+                            <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                                🏍️ 51A-98765
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                    <h4 style="font-size: 16px; color: #333; margin-bottom: 15px;">📍 Địa chỉ</h4>
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 13px; color: #999; margin-bottom: 4px;">Từ:</div>
+                        <div style="font-size: 14px; color: #333;">123 Điện Biên Phủ, Q.Bình Thạnh</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 13px; color: #999; margin-bottom: 4px;">Đến:</div>
+                        <div style="font-size: 14px; color: #333;">789 Trần Hưng Đạo, Q.5, TP.HCM</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 2px;">Người nhận: Lê Thị C - 0965432198</div>
+                    </div>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                    <h4 style="font-size: 16px; color: #333; margin-bottom: 15px;">💰 Chi phí</h4>
+                    <div class="info-row">
+                        <span class="label">Phí vận chuyển:</span>
+                        <span class="value">30,000đ</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Phí bảo hiểm:</span>
+                        <span class="value">5,000đ</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Thu hộ (COD):</span>
+                        <span class="value">115,000đ</span>
+                    </div>
+                    <div class="info-row" style="padding-top: 10px; border-top: 2px dashed #d0d0d0; margin-top: 10px;">
+                        <span class="label" style="font-size: 16px; font-weight: 700; color: #333;">Tổng cộng:</span>
+                        <span class="value" style="font-size: 18px; font-weight: 700; color: #667eea;">150,000đ</span>
+                    </div>
+                </div>
+
+                <div style="background: #fff3cd; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <p style="font-size: 13px; color: #856404;">
+                        <strong>💡 Ghi chú:</strong> Giao hàng trước 18:00
+                    </p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <button style="padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        ⭐ Đánh giá
+                    </button>
+                    <button style="padding: 14px; background: white; color: #667eea; border: 2px solid #667eea; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        🔄 Đặt lại
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

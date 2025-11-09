@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #4 - Theo dõi trạng thái đơn hàng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .header-title h2 {
+            font-size: 22px;
+        }
+        .screen-content {
+            padding: 25px 20px 100px;
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        .order-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 2px solid #e0e0e0;
+        }
+        .order-code {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 12px;
+        }
+        .order-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .order-info-row .label {
+            color: #666;
+        }
+        .order-info-row .value {
+            font-weight: 600;
+            color: #333;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-delivering {
+            background: #cfe2ff;
+            color: #084298;
+        }
+        .status-completed {
+            background: #d1f2eb;
+            color: #0f5132;
+        }
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 10px;
+            bottom: 10px;
+            width: 3px;
+            background: #e0e0e0;
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -32px;
+            top: 5px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #e0e0e0;
+            z-index: 1;
+        }
+        .timeline-item.active::before {
+            background: #667eea;
+            box-shadow: 0 0 0 2px #667eea;
+        }
+        .timeline-item.completed::before {
+            background: #28a745;
+            box-shadow: 0 0 0 2px #28a745;
+            content: '✓';
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .timeline-status {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+        .timeline-item.active .timeline-status {
+            color: #667eea;
+        }
+        .timeline-item.completed .timeline-status {
+            color: #28a745;
+        }
+        .timeline-time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+        .timeline-desc {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .driver-info {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 25px 0;
+            border: 2px solid #667eea;
+        }
+        .driver-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .driver-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+        }
+        .driver-details {
+            flex: 1;
+        }
+        .driver-name {
+            font-weight: 700;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .driver-rating {
+            font-size: 14px;
+            color: #ffc107;
+        }
+        .driver-contact {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .contact-btn {
+            padding: 12px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        .contact-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        .map-preview {
+            background: #e0e0e0;
+            height: 180px;
+            border-radius: 15px;
+            margin: 25px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+        .map-preview::after {
+            content: '🗺️ Xem bản đồ theo dõi';
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #667eea;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        .action-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 375px;
+            background: white;
+            padding: 15px 20px;
+            border-top: 1px solid #e0e0e0;
+            border-radius: 30px 30px 0 0;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-bottom: 8px;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            width: 100%;
+            padding: 14px;
+            background: white;
+            color: #dc3545;
+            border: 2px solid #dc3545;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .delivery-photos {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .photo-item {
+            aspect-ratio: 1;
+            background: #f0f0f0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+            border: 2px solid #e0e0e0;
+        }
+        .info-box {
+            background: #d1ecf1;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #0c5460;
+        }
+        .info-box p {
+            font-size: 13px;
+            color: #0c5460;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="screen">
+        <div class="screen-title">STORY #4 - THEO DỔI TRẠNG THÁI ĐỜN HÀNG</div>
+        <div class="screen-header">
+            <div class="header-title">
+                <span class="back-btn">←</span>
+                <h2>Chi tiết đơn hàng</h2>
+            </div>
+        </div>
+        <div class="screen-content">
+            <!-- Thông tin đơn hàng -->
+            <div class="order-header">
+                <div class="order-code">📦 #DH2024110901</div>
+                <div class="order-info-row">
+                    <span class="label">Thời gian đặt:</span>
+                    <span class="value">09/11/2024 14:30</span>
+                </div>
+                <div class="order-info-row">
+                    <span class="label">Loại hàng:</span>
+                    <span class="value">Thực phẩm (2.5kg)</span>
+                </div>
+                <div class="order-info-row">
+                    <span class="label">Tổng tiền:</span>
+                    <span class="value" style="color: #667eea;">280,000đ</span>
+                </div>
+                <span class="status-badge status-delivering">🚚 Đang giao hàng</span>
+            </div>
+
+            <!-- Thông tin tài xế -->
+            <div class="driver-info">
+                <div class="driver-header">
+                    <div class="driver-avatar">👨</div>
+                    <div class="driver-details">
+                        <div class="driver-name">Nguyễn Văn Tài</div>
+                        <div class="driver-rating">⭐ 4.8 (256 đánh giá)</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 2px;">🏍️ 59A-12345</div>
+                    </div>
+                </div>
+                <div class="driver-contact">
+                    <button class="contact-btn">📞 Gọi</button>
+                    <button class="contact-btn">💬 Nhắn tin</button>
+                </div>
+            </div>
+
+            <!-- Bản đồ -->
+            <div class="map-preview">🗺️</div>
+
+            <!-- Timeline trạng thái -->
+            <h3 style="font-size: 18px; margin-bottom: 20px; color: #333;">📍 Lộ trình giao hàng</h3>
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div class="timeline-status">✓ Đã tạo đơn hàng</div>
+                    <div class="timeline-time">09/11/2024 - 14:30</div>
+                    <div class="timeline-desc">Đơn hàng đã được tạo và xác nhận</div>
+                </div>
+
+                <div class="timeline-item completed">
+                    <div class="timeline-status">✓ Đã phân công tài xế</div>
+                    <div class="timeline-time">09/11/2024 - 14:45</div>
+                    <div class="timeline-desc">Tài xế Nguyễn Văn Tài đã nhận đơn</div>
+                </div>
+
+                <div class="timeline-item completed">
+                    <div class="timeline-status">✓ Đã lấy hàng</div>
+                    <div class="timeline-time">09/11/2024 - 15:10</div>
+                    <div class="timeline-desc">Tài xế đã lấy hàng tại 123 Điện Biên Phủ</div>
+                </div>
+
+                <div class="timeline-item active">
+                    <div class="timeline-status">🚚 Đang giao hàng</div>
+                    <div class="timeline-time">09/11/2024 - 15:30</div>
+                    <div class="timeline-desc">Tài xế đang trên đường đến địa chỉ giao hàng<br>
+                    📍 Cách bạn 2.3km - Dự kiến 15 phút</div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-status">Giao hàng thành công</div>
+                    <div class="timeline-time">Đang chờ</div>
+                    <div class="timeline-desc">Chờ xác nhận giao hàng thành công</div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-status">Hoàn thành</div>
+                    <div class="timeline-time">Đang chờ</div>
+                    <div class="timeline-desc">Đơn hàng hoàn tất</div>
+                </div>
+            </div>
+
+            <!-- Thông tin giao nhận -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-top: 30px;">
+                <h4 style="font-size: 16px; color: #333; margin-bottom: 15px;">📍 Địa chỉ giao hàng</h4>
+                <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Người nhận:</strong> Trần Thị B</p>
+                <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>SĐT:</strong> 0987654321</p>
+                <p style="font-size: 14px; color: #666;"><strong>Địa chỉ:</strong> 456 Lê Văn Việt, Phường Tăng Nhơn Phú A, Quận 9, TP.HCM</p>
+            </div>
+
+            <!-- Ghi chú -->
+            <div class="info-box">
+                <p><strong>💡 Ghi chú từ người gửi:</strong><br>
+                Vui lòng giao hàng trước 17:00. Gọi điện trước khi đến 10 phút.</p>
+            </div>
+
+            <!-- Hình ảnh (sẽ có sau khi giao) -->
+            <h4 style="font-size: 16px; color: #999; margin: 25px 0 15px;">📸 Hình ảnh giao hàng</h4>
+            <div class="delivery-photos">
+                <div class="photo-item" style="opacity: 0.5;">📷</div>
+                <div class="photo-item" style="opacity: 0.5;">📷</div>
+                <div class="photo-item" style="opacity: 0.5;">📷</div>
+            </div>
+            <p style="font-size: 12px; color: #999; text-align: center;">Hình ảnh sẽ được cập nhật sau khi giao hàng</p>
+        </div>
+
+        <!-- Nút hành động -->
+        <div class="action-buttons">
+            <button class="btn-primary">📍 Xem bản đồ theo thời gian thực</button>
+            <button class="btn-secondary">❌ Hủy đơn hàng</button>
+        </div>
+    </div>
+</body>
+</html>
