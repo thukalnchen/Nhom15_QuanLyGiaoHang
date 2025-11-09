@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #5 - Nhận thông báo khi đơn thay đổi trạng thái</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .back-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .header-title h2 {
+            font-size: 22px;
+            flex: 1;
+            text-align: center;
+        }
+        .settings-icon {
+            font-size: 22px;
+            cursor: pointer;
+        }
+        .screen-content {
+            padding: 0;
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        .notification-item {
+            padding: 18px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            gap: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+        .notification-item.unread {
+            background: #f0f4ff;
+        }
+        .notification-item.unread::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+        }
+        .notification-icon {
+            font-size: 38px;
+            flex-shrink: 0;
+        }
+        .notification-content {
+            flex: 1;
+        }
+        .notification-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 6px;
+        }
+        .notification-desc {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 6px;
+        }
+        .notification-time {
+            font-size: 12px;
+            color: #999;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 80px 40px;
+        }
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        .empty-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .empty-desc {
+            font-size: 14px;
+            color: #999;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            background: white;
+            position: sticky;
+            top: 100px;
+            z-index: 9;
+        }
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+            color: #999;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .notification-badge {
+            display: inline-block;
+            background: #dc3545;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        /* Push notification popup */
+        .push-notification {
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            width: 340px;
+            padding: 16px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: flex;
+            gap: 12px;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from {
+                transform: translateX(-50%) translateY(-100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        .push-icon {
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+        .push-content {
+            flex: 1;
+        }
+        .push-app {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+        .push-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .push-desc {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+        .push-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 6px;
+        }
+        .device-mockup {
+            width: 375px;
+            height: 100px;
+            background: #1a1a1a;
+            border-radius: 30px 30px 0 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            margin-bottom: 0;
+        }
+        .status-bar {
+            position: absolute;
+            top: 12px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Screen 1: Push notification trên màn hình -->
+        <div class="screen">
+            <div class="screen-title">STORY #5.1 - THÔNG BÁO PUSH (Đã phân công tài xế)</div>
+            <div class="device-mockup">
+                <div class="status-bar">
+                    <span>9:41</span>
+                    <span>📶 📡 🔋</span>
+                </div>
+            </div>
+            <div class="push-notification">
+                <div class="push-icon">📦</div>
+                <div class="push-content">
+                    <div class="push-app">Giao Hàng Nhanh</div>
+                    <div class="push-title">Đã phân công tài xế</div>
+                    <div class="push-desc">Tài xế Nguyễn Văn Tài đã nhận đơn #DH2024110901 của bạn. Dự kiến lấy hàng lúc 15:00</div>
+                    <div class="push-time">Vừa xong</div>
+                </div>
+            </div>
+            <div style="padding: 200px 30px; text-align: center; background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); height: 567px;">
+                <div style="font-size: 60px; margin-bottom: 20px;">🏠</div>
+                <div style="font-size: 18px; color: #666;">Màn hình chính</div>
+                <div style="font-size: 13px; color: #999; margin-top: 10px;">
+                    Nhấn vào thông báo để xem chi tiết
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: Danh sách thông báo -->
+        <div class="screen">
+            <div class="screen-title">STORY #5.2 - DANH SÁCH THÔNG BÁO</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Thông báo</h2>
+                    <span class="settings-icon">⚙️</span>
+                </div>
+            </div>
+            <div class="tabs">
+                <div class="tab active">
+                    Tất cả <span class="notification-badge">5</span>
+                </div>
+                <div class="tab">
+                    Đơn hàng
+                </div>
+                <div class="tab">
+                    Khuyến mãi
+                </div>
+            </div>
+            <div class="screen-content">
+                <!-- Hôm nay -->
+                <div style="padding: 12px 20px; background: #f8f9fa; font-size: 13px; font-weight: 600; color: #666;">
+                    Hôm nay
+                </div>
+
+                <div class="notification-item unread">
+                    <div class="notification-icon">🚚</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Đang giao hàng</div>
+                        <div class="notification-desc">Đơn hàng #DH2024110901 đang được giao đến bạn. Tài xế cách bạn 2.3km - Dự kiến 15 phút nữa.</div>
+                        <div class="notification-time">5 phút trước</div>
+                    </div>
+                </div>
+
+                <div class="notification-item unread">
+                    <div class="notification-icon">📦</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Đã lấy hàng</div>
+                        <div class="notification-desc">Tài xế Nguyễn Văn Tài đã lấy hàng tại 123 Điện Biên Phủ. Đơn hàng #DH2024110901 đang trên đường giao.</div>
+                        <div class="notification-time">25 phút trước</div>
+                    </div>
+                </div>
+
+                <div class="notification-item unread">
+                    <div class="notification-icon">👨</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Đã phân công tài xế</div>
+                        <div class="notification-desc">Tài xế Nguyễn Văn Tài (⭐4.8) đã nhận đơn #DH2024110901. Dự kiến lấy hàng lúc 15:00.</div>
+                        <div class="notification-time">40 phút trước</div>
+                    </div>
+                </div>
+
+                <div class="notification-item unread">
+                    <div class="notification-icon">✅</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Đơn hàng đã được xác nhận</div>
+                        <div class="notification-desc">Đơn hàng #DH2024110901 đã được xác nhận. Chúng tôi đang tìm tài xế gần bạn nhất.</div>
+                        <div class="notification-time">1 giờ trước</div>
+                    </div>
+                </div>
+
+                <div class="notification-item unread">
+                    <div class="notification-icon">💰</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Thanh toán thành công</div>
+                        <div class="notification-desc">Bạn đã thanh toán 30,000đ cho đơn hàng #DH2024110901 bằng COD.</div>
+                        <div class="notification-time">1 giờ trước</div>
+                    </div>
+                </div>
+
+                <!-- Hôm qua -->
+                <div style="padding: 12px 20px; background: #f8f9fa; font-size: 13px; font-weight: 600; color: #666;">
+                    Hôm qua
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-icon">🎉</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Giao hàng thành công</div>
+                        <div class="notification-desc">Đơn hàng #DH2024110801 đã được giao thành công. Cảm ơn bạn đã sử dụng dịch vụ!</div>
+                        <div class="notification-time">Hôm qua 17:30</div>
+                    </div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-icon">🎁</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Khuyến mãi đặc biệt</div>
+                        <div class="notification-desc">Giảm 30% phí giao hàng cho đơn tiếp theo. Mã: GIAO30. Có hiệu lực đến 15/11/2024.</div>
+                        <div class="notification-time">Hôm qua 10:00</div>
+                    </div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-icon">⭐</div>
+                    <div class="notification-content">
+                        <div class="notification-title">Đánh giá đơn hàng</div>
+                        <div class="notification-desc">Bạn đã đánh giá đơn hàng #DH2024110801 với 5 sao. Cảm ơn phản hồi của bạn!</div>
+                        <div class="notification-time">Hôm qua 18:00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3: Cài đặt thông báo -->
+        <div class="screen">
+            <div class="screen-title">STORY #5.3 - CÀI ĐẶT THÔNG BÁO</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Cài đặt thông báo</h2>
+                    <span style="width: 24px;"></span>
+                </div>
+            </div>
+            <div class="screen-content" style="padding: 20px;">
+                <div style="background: #d1ecf1; padding: 15px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #0c5460;">
+                    <p style="font-size: 13px; color: #0c5460; line-height: 1.6;">
+                        💡 Bật thông báo để nhận cập nhật về đơn hàng của bạn theo thời gian thực
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="font-size: 16px; color: #333; margin-bottom: 15px;">📱 Thông báo đẩy (Push)</h3>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px;">Bật thông báo</div>
+                            <div style="font-size: 12px; color: #999;">Nhận thông báo về đơn hàng</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #667eea; transition: .4s; border-radius: 28px; box-shadow: inset 0 0 5px rgba(0,0,0,0.2);"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="font-size: 16px; color: #333; margin-bottom: 15px;">🔔 Loại thông báo</h3>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px;">Cập nhật đơn hàng</div>
+                            <div style="font-size: 12px; color: #999;">Trạng thái đơn thay đổi</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #667eea; transition: .4s; border-radius: 28px;"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 26px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px;">Thông tin tài xế</div>
+                            <div style="font-size: 12px; color: #999;">Khi có tài xế nhận đơn</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #667eea; transition: .4s; border-radius: 28px;"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 26px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px;">Giao hàng thành công</div>
+                            <div style="font-size: 12px; color: #999;">Khi đơn hoàn thành</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #667eea; transition: .4s; border-radius: 28px;"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 26px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px;">Khuyến mãi</div>
+                            <div style="font-size: 12px; color: #999;">Ưu đãi và giảm giá</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px;"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="font-size: 16px; color: #333; margin-bottom: 15px;">🎵 Âm thanh & Rung</h3>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333;">Âm thanh</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #667eea; transition: .4s; border-radius: 28px;"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 26px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #333;">Rung</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 28px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #667eea; transition: .4s; border-radius: 28px;"></span>
+                            <span style="position: absolute; content: ''; height: 22px; width: 22px; left: 26px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <button style="width: 100%; padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                    Lưu cài đặt
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

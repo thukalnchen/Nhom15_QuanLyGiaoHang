@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { generateReceiptPDF } = require('../services/pdfService');
 
 // Get all warehouse orders (pending, received, classified, ready)
 exports.getWarehouseOrders = async (req, res) => {
@@ -396,19 +397,20 @@ exports.generateReceipt = async (req, res) => {
     
     const order = result.rows[0];
     
-    // TODO: Generate PDF receipt here using a PDF library
-    // For now, return order data for client-side PDF generation
+    // Generate PDF receipt
+    const pdfResult = await generateReceiptPDF(order_id);
     
-    console.log(`Receipt generated for order ${order_id}`);
+    console.log(`Receipt generated for order ${order_id}: ${pdfResult.filename}`);
     
     res.json({
       success: true,
-      message: 'Đã tạo biên nhận',
-      order: order,
+      message: 'Đã tạo hóa đơn PDF thành công',
       receipt: {
         order_code: order.order_code,
+        filename: pdfResult.filename,
+        url: pdfResult.url,
         generated_at: new Date(),
-        generated_by: req.user.name
+        generated_by: req.user.email
       }
     });
   } catch (error) {

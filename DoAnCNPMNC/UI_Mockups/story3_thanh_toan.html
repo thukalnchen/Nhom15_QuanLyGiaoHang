@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #3 - Thanh toán (COD hoặc online)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .header-title h2 {
+            font-size: 22px;
+        }
+        .screen-content {
+            padding: 25px 20px;
+        }
+        .order-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 2px solid #e0e0e0;
+        }
+        .order-summary h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .order-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .order-info .label {
+            color: #666;
+        }
+        .order-info .value {
+            font-weight: 600;
+            color: #333;
+        }
+        .payment-methods {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .payment-option {
+            background: white;
+            border: 2px solid #e0e0e0;
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .payment-option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .payment-option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            position: relative;
+        }
+        .payment-option.selected::after {
+            content: '✓';
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .payment-icon {
+            font-size: 32px;
+            width: 50px;
+            text-align: center;
+        }
+        .payment-details {
+            flex: 1;
+        }
+        .payment-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .payment-desc {
+            font-size: 12px;
+            color: #999;
+        }
+        .cod-info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #ffc107;
+            margin-top: 15px;
+        }
+        .cod-info p {
+            font-size: 13px;
+            color: #856404;
+            line-height: 1.6;
+        }
+        .price-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 25px 0;
+        }
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .price-row .label {
+            color: #666;
+        }
+        .price-row .value {
+            font-weight: 600;
+            color: #333;
+        }
+        .price-row.total {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+            padding-top: 15px;
+            border-top: 2px dashed #d0d0d0;
+            margin-top: 15px;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        .payment-form {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .card-icons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .card-icon {
+            font-size: 24px;
+        }
+        .success-checkmark {
+            width: 80px;
+            height: 80px;
+            margin: 30px auto;
+            background: #28a745;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+        }
+        .success-message {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .success-message h3 {
+            font-size: 24px;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+        .success-message p {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Screen 1: Chọn phương thức thanh toán -->
+        <div class="screen">
+            <div class="screen-title">STORY #3.1 - CHỌN PHƯƠNG THỨC THANH TOÁN</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Thanh toán</h2>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="order-summary">
+                    <h3>📦 Thông tin đơn hàng</h3>
+                    <div class="order-info">
+                        <span class="label">Mã đơn:</span>
+                        <span class="value">#DH2024110901</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="label">Người nhận:</span>
+                        <span class="value">Trần Thị B</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="label">Địa chỉ:</span>
+                        <span class="value">456 Lê Văn Việt, Q.9</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="label">Loại hàng:</span>
+                        <span class="value">Thực phẩm (2.5kg)</span>
+                    </div>
+                </div>
+
+                <div class="section-title">
+                    💳 Chọn phương thức thanh toán
+                </div>
+
+                <div class="payment-methods">
+                    <div class="payment-option selected">
+                        <div class="payment-icon">💵</div>
+                        <div class="payment-details">
+                            <div class="payment-name">Thanh toán khi nhận hàng (COD)</div>
+                            <div class="payment-desc">Thanh toán bằng tiền mặt cho tài xế</div>
+                        </div>
+                    </div>
+
+                    <div class="payment-option">
+                        <div class="payment-icon">💳</div>
+                        <div class="payment-details">
+                            <div class="payment-name">Thẻ tín dụng/ghi nợ</div>
+                            <div class="payment-desc">Visa, Mastercard, JCB</div>
+                        </div>
+                    </div>
+
+                    <div class="payment-option">
+                        <div class="payment-icon">🏦</div>
+                        <div class="payment-details">
+                            <div class="payment-name">Chuyển khoản ngân hàng</div>
+                            <div class="payment-desc">Chuyển khoản qua Internet Banking</div>
+                        </div>
+                    </div>
+
+                    <div class="payment-option">
+                        <div class="payment-icon">📱</div>
+                        <div class="payment-details">
+                            <div class="payment-name">Ví điện tử</div>
+                            <div class="payment-desc">MoMo, ZaloPay, VNPay</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cod-info">
+                    <p><strong>💡 Lưu ý:</strong> Với COD, bạn sẽ thanh toán tiền mặt trực tiếp cho tài xế khi nhận hàng. Số tiền thu hộ sẽ được gửi lại cho bạn sau 24-48h.</p>
+                </div>
+
+                <div class="price-summary">
+                    <div class="price-row">
+                        <span class="label">Phí vận chuyển:</span>
+                        <span class="value">25,000đ</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="label">Phí bảo hiểm:</span>
+                        <span class="value">5,000đ</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="label">Thu hộ (COD):</span>
+                        <span class="value">250,000đ</span>
+                    </div>
+                    <div class="price-row total">
+                        <span class="label">Tổng thanh toán:</span>
+                        <span class="value">280,000đ</span>
+                    </div>
+                </div>
+
+                <button class="btn-primary">Xác nhận thanh toán</button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Thanh toán online -->
+        <div class="screen">
+            <div class="screen-title">STORY #3.2 - THANH TOÁN ONLINE</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <span class="back-btn">←</span>
+                    <h2>Thanh toán online</h2>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="section-title">
+                    💳 Nhập thông tin thẻ
+                </div>
+
+                <div class="payment-form">
+                    <div class="form-group">
+                        <label>Số thẻ</label>
+                        <input type="text" placeholder="1234 5678 9012 3456" maxlength="19">
+                    </div>
+                    <div class="form-group">
+                        <label>Tên chủ thẻ</label>
+                        <input type="text" placeholder="NGUYEN VAN A">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label>Ngày hết hạn</label>
+                            <input type="text" placeholder="MM/YY">
+                        </div>
+                        <div class="form-group">
+                            <label>CVV</label>
+                            <input type="text" placeholder="123" maxlength="3">
+                        </div>
+                    </div>
+                    <div class="card-icons">
+                        <span class="card-icon">💳</span>
+                        <span style="font-size: 12px; color: #999;">Visa, Mastercard, JCB được chấp nhận</span>
+                    </div>
+                </div>
+
+                <div class="price-summary" style="margin-top: 25px;">
+                    <div class="price-row">
+                        <span class="label">Phí vận chuyển:</span>
+                        <span class="value">25,000đ</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="label">Phí bảo hiểm:</span>
+                        <span class="value">5,000đ</span>
+                    </div>
+                    <div class="price-row total">
+                        <span class="label">Tổng thanh toán:</span>
+                        <span class="value">30,000đ</span>
+                    </div>
+                </div>
+
+                <div style="background: #d1ecf1; padding: 12px; border-radius: 8px; margin: 20px 0;">
+                    <p style="font-size: 12px; color: #0c5460; text-align: center;">
+                        🔒 Giao dịch được mã hóa bảo mật SSL
+                    </p>
+                </div>
+
+                <button class="btn-primary">Thanh toán 30,000đ</button>
+            </div>
+        </div>
+
+        <!-- Screen 3: Thanh toán thành công -->
+        <div class="screen">
+            <div class="screen-title">STORY #3.3 - THANH TOÁN THÀNH CÔNG</div>
+            <div class="screen-header">
+                <div class="header-title">
+                    <h2 style="margin: 0 auto;">Thanh toán</h2>
+                </div>
+            </div>
+            <div class="screen-content">
+                <div class="success-checkmark">✓</div>
+                <div class="success-message">
+                    <h3>Thanh toán thành công!</h3>
+                    <p>Đơn hàng của bạn đã được xác nhận</p>
+                </div>
+
+                <div class="order-summary">
+                    <h3>📦 Chi tiết đơn hàng</h3>
+                    <div class="order-info">
+                        <span class="label">Mã đơn:</span>
+                        <span class="value">#DH2024110901</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="label">Thời gian:</span>
+                        <span class="value">09/11/2024 14:30</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="label">Phương thức:</span>
+                        <span class="value">COD</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="label">Trạng thái:</span>
+                        <span class="value" style="color: #28a745;">✓ Đã xác nhận</span>
+                    </div>
+                </div>
+
+                <div class="price-summary">
+                    <div class="price-row">
+                        <span class="label">Phí vận chuyển:</span>
+                        <span class="value">25,000đ</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="label">Phí bảo hiểm:</span>
+                        <span class="value">5,000đ</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="label">Thu hộ (COD):</span>
+                        <span class="value">250,000đ</span>
+                    </div>
+                    <div class="price-row total">
+                        <span class="label">Tổng cộng:</span>
+                        <span class="value">280,000đ</span>
+                    </div>
+                </div>
+
+                <div style="background: #d4edda; padding: 15px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #28a745;">
+                    <p style="font-size: 13px; color: #155724; line-height: 1.6;">
+                        📱 Bạn sẽ nhận được thông báo khi đơn hàng thay đổi trạng thái. Có thể theo dõi đơn hàng trong mục "Đơn hàng của tôi"
+                    </p>
+                </div>
+
+                <button class="btn-primary">Xem chi tiết đơn hàng</button>
+                <button class="btn-primary" style="background: white; color: #667eea; border: 2px solid #667eea; margin-top: 10px;">
+                    Về trang chủ
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

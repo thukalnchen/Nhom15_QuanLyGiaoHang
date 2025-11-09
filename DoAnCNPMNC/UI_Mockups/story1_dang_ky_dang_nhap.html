@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #1 - Đăng ký tài khoản / Đăng nhập</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1400px;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 50px 30px 30px;
+            text-align: center;
+        }
+        .screen-header h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .screen-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .screen-content {
+            padding: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .divider {
+            text-align: center;
+            margin: 25px 0;
+            color: #999;
+            position: relative;
+        }
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #e0e0e0;
+        }
+        .divider::before {
+            left: 0;
+        }
+        .divider::after {
+            right: 0;
+        }
+        .link-text {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        .link-text a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .checkbox-group input {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+        .checkbox-group label {
+            font-size: 13px;
+            color: #666;
+            margin: 0;
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Screen 1: Đăng nhập -->
+        <div class="screen">
+            <div class="screen-title">STORY #1.1 - ĐĂNG NHẬP</div>
+            <div class="screen-header">
+                <div class="logo">📦</div>
+                <h2>Chào mừng trở lại!</h2>
+                <p>Đăng nhập để tiếp tục</p>
+            </div>
+            <div class="screen-content">
+                <div class="form-group">
+                    <label>Số điện thoại</label>
+                    <input type="tel" placeholder="Nhập số điện thoại" value="0123456789">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <input type="password" placeholder="Nhập mật khẩu" value="********">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="remember">
+                    <label for="remember">Ghi nhớ đăng nhập</label>
+                </div>
+                <button class="btn-primary">Đăng nhập</button>
+                <div class="link-text">
+                    <a href="#">Quên mật khẩu?</a>
+                </div>
+                <div class="divider">hoặc</div>
+                <div class="link-text">
+                    Chưa có tài khoản? <a href="#">Đăng ký ngay</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: Đăng ký -->
+        <div class="screen">
+            <div class="screen-title">STORY #1.2 - ĐĂNG KÝ TÀI KHOẢN</div>
+            <div class="screen-header">
+                <div class="logo">📦</div>
+                <h2>Tạo tài khoản mới</h2>
+                <p>Điền thông tin để đăng ký</p>
+            </div>
+            <div class="screen-content">
+                <div class="form-group">
+                    <label>Họ và tên <span style="color: red;">*</span></label>
+                    <input type="text" placeholder="Nhập họ và tên">
+                </div>
+                <div class="form-group">
+                    <label>Số điện thoại <span style="color: red;">*</span></label>
+                    <input type="tel" placeholder="Nhập số điện thoại">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu <span style="color: red;">*</span></label>
+                    <input type="password" placeholder="Tối thiểu 6 ký tự">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="terms" checked>
+                    <label for="terms">Tôi đồng ý với điều khoản sử dụng</label>
+                </div>
+                <button class="btn-primary">Đăng ký</button>
+                <div class="link-text">
+                    Đã có tài khoản? <a href="#">Đăng nhập</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,44 @@
+﻿name: lalamove_app
+description: Lalamove Unified App - Customer & Intake Staff
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.1
+  http: ^1.1.0
+  socket_io_client: ^2.0.3+1
+  shared_preferences: ^2.2.2
+  json_annotation: ^4.8.1
+  qr_code_scanner: ^1.0.1
+  mobile_scanner: ^3.5.5
+  image_picker: ^1.0.7
+  camera: ^0.10.5+9
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^10.1.0
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.0
+  flutter_spinkit: ^5.2.0
+  form_field_validator: ^1.1.0
+  intl: ^0.18.1
+  fluttertoast: ^8.2.4
+  qr_flutter: ^4.1.0
+  pdf: ^3.10.7
+  printing: ^5.11.1
+  # Firebase - Tạm thời comment để chạy web, uncomment khi chạy mobile
+  # firebase_core: ^2.24.2
+  # firebase_messaging: ^14.7.9
+  # flutter_local_notifications: ^16.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

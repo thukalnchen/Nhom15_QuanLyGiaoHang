@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story #2 - Tạo đơn gửi hàng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .screen {
+            background: white;
+            width: 375px;
+            height: 667px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            position: relative;
+        }
+        .screen-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .header-title h2 {
+            font-size: 24px;
+        }
+        .screen-content {
+            padding: 25px 20px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title span {
+            font-size: 22px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            color: #555;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .required {
+            color: red;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .address-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            margin-bottom: 15px;
+        }
+        .address-card h4 {
+            font-size: 14px;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        .address-card p {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .service-type {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .service-option {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .service-option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .service-option.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .service-option .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .service-option .label {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .price-summary {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .price-row.total {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+            padding-top: 10px;
+            border-top: 2px dashed #e0e0e0;
+            margin-top: 10px;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .screen-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(255,255,255,0.95);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        .input-with-icon {
+            position: relative;
+        }
+        .input-with-icon input {
+            padding-right: 45px;
+        }
+        .input-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="screen">
+        <div class="screen-title">STORY #2 - TẠO ĐƠN GỬI HÀNG</div>
+        <div class="screen-header">
+            <div class="header-title">
+                <span class="back-btn">←</span>
+                <h2>Tạo đơn gửi hàng</h2>
+            </div>
+        </div>
+        <div class="screen-content">
+            <!-- Loại dịch vụ -->
+            <div class="section-title">
+                <span>📦</span>
+                Loại dịch vụ
+            </div>
+            <div class="service-type">
+                <div class="service-option active">
+                    <div class="icon">🚴</div>
+                    <div class="label">Giao nhanh</div>
+                    <div style="font-size: 11px; margin-top: 5px;">2-4 giờ</div>
+                </div>
+                <div class="service-option">
+                    <div class="icon">📮</div>
+                    <div class="label">Tiết kiệm</div>
+                    <div style="font-size: 11px; margin-top: 5px;">1-2 ngày</div>
+                </div>
+            </div>
+
+            <!-- Địa chỉ người gửi -->
+            <div class="section-title">
+                <span>📍</span>
+                Người gửi
+            </div>
+            <div class="form-group">
+                <label>Họ tên <span class="required">*</span></label>
+                <input type="text" placeholder="Nguyễn Văn A" value="Nguyễn Văn A">
+            </div>
+            <div class="form-group">
+                <label>Số điện thoại <span class="required">*</span></label>
+                <input type="tel" placeholder="0123456789" value="0912345678">
+            </div>
+            <div class="form-group">
+                <label>Địa chỉ lấy hàng <span class="required">*</span></label>
+                <div class="input-with-icon">
+                    <input type="text" placeholder="Nhập địa chỉ..." value="123 Điện Biên Phủ, Q.Bình Thạnh">
+                    <span class="input-icon">📍</span>
+                </div>
+            </div>
+
+            <!-- Địa chỉ người nhận -->
+            <div class="section-title" style="margin-top: 25px;">
+                <span>🎯</span>
+                Người nhận
+            </div>
+            <div class="form-group">
+                <label>Họ tên <span class="required">*</span></label>
+                <input type="text" placeholder="Trần Thị B">
+            </div>
+            <div class="form-group">
+                <label>Số điện thoại <span class="required">*</span></label>
+                <input type="tel" placeholder="0123456789">
+            </div>
+            <div class="form-group">
+                <label>Địa chỉ giao hàng <span class="required">*</span></label>
+                <div class="input-with-icon">
+                    <input type="text" placeholder="Nhập địa chỉ...">
+                    <span class="input-icon">📍</span>
+                </div>
+            </div>
+
+            <!-- Thông tin hàng hóa -->
+            <div class="section-title" style="margin-top: 25px;">
+                <span>📋</span>
+                Thông tin hàng hóa
+            </div>
+            <div class="form-group">
+                <label>Loại hàng <span class="required">*</span></label>
+                <select>
+                    <option>Chọn loại hàng...</option>
+                    <option selected>Thực phẩm</option>
+                    <option>Quần áo</option>
+                    <option>Điện tử</option>
+                    <option>Văn phòng phẩm</option>
+                    <option>Khác</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mô tả hàng hóa</label>
+                <textarea placeholder="Mô tả chi tiết hàng hóa...">Đồ ăn nhẹ, không dễ vỡ</textarea>
+            </div>
+            <div class="form-group">
+                <label>Trọng lượng (kg)</label>
+                <input type="number" placeholder="0.0" value="2.5">
+            </div>
+
+            <!-- Thanh toán -->
+            <div class="section-title" style="margin-top: 25px;">
+                <span>💰</span>
+                Phương thức thanh toán
+            </div>
+            <div class="form-group">
+                <label>Hình thức thanh toán <span class="required">*</span></label>
+                <select>
+                    <option>Chọn hình thức...</option>
+                    <option selected>COD (Thu tiền người nhận)</option>
+                    <option>Thanh toán online</option>
+                    <option>Người gửi trả</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Số tiền thu hộ (COD)</label>
+                <input type="number" placeholder="0" value="250000">
+            </div>
+
+            <!-- Tính giá -->
+            <div class="price-summary">
+                <div class="price-row">
+                    <span>Phí giao hàng:</span>
+                    <span>25,000đ</span>
+                </div>
+                <div class="price-row">
+                    <span>Phí bảo hiểm:</span>
+                    <span>5,000đ</span>
+                </div>
+                <div class="price-row">
+                    <span>Thu hộ (COD):</span>
+                    <span>250,000đ</span>
+                </div>
+                <div class="price-row total">
+                    <span>Tổng cộng:</span>
+                    <span>280,000đ</span>
+                </div>
+            </div>
+
+            <button class="btn-primary">Xác nhận tạo đơn</button>
+        </div>
+    </div>
+</body>
+</html>
