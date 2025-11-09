@@ -125,7 +125,7 @@ CREATE DATABASE food_delivery;
 \q
 ```
 
-**⚠️ Lưu ý:** Password của PostgreSQL là `Trongkhang205@`
+**⚠️ Lưu ý:** Password của PostgreSQL là `( Nhập pass của m vào đây con lợn )`
 
 ### Bước 3: Cài đặt Backend (Node.js)
 
@@ -168,7 +168,7 @@ PORT=3000
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
-DB_PASSWORD=Trongkhang205@
+DB_PASSWORD= SỬA LẠI PASSWORD CỦA CHÚNG M Ở ĐÂy 
 DB_NAME=food_delivery
 JWT_SECRET=your-secret-key-here-change-in-production
 JWT_EXPIRE=7d
@@ -256,17 +256,6 @@ flutter pub deps
 flutter --version
 ```
 
-#### 5.3. Kiểm tra PostgreSQL
-```bash
-# Check service status
-Get-Service postgresql-x64-17
-
-# Kết nối thử
-$env:PGPASSWORD='Trongkhang205@'
-psql -U postgres -d food_delivery -c "SELECT version();"
-
-# Nếu thành công sẽ hiển thị version của PostgreSQL
-```
 
 ### Bước 6: Tóm tắt cấu trúc thư mục sau khi cài đặt
 
@@ -345,35 +334,7 @@ Nếu thấy response JSON → Backend đã chạy thành công! ✅
 
 ---
 
-## 📱 CHẠY APP (lalamove_app)
-
-### App này hỗ trợ 2 loại người dùng với phân quyền role:
-
-#### 🛍️ **KHÁCH HÀNG (Customer)**
-Chức năng chính:
-- ✅ Đăng ký / Đăng nhập
-- ✅ Tạo đơn hàng giao hàng
-- ✅ Theo dõi đơn hàng real-time trên bản đồ
-- ✅ Xem lịch sử đơn hàng
-- ✅ Thanh toán online
-- ✅ Đánh giá tài xế
-- ✅ Nhận thông báo
-- ✅ Khiếu nại đơn hàng
-- ✅ Xuất hóa đơn PDF
-
-#### 🚗 **TÀI XẾ (Driver)**
-Chức năng chính:
-- ✅ Đăng nhập với role "driver"
-- ✅ Nhận đơn hàng mới
-- ✅ Xem chi tiết đơn hàng
-- ✅ Cập nhật trạng thái giao hàng
-- ✅ Theo dõi vị trí GPS real-time
-- ✅ Xem lịch sử giao hàng
-- ✅ Báo cáo thu nhập
-
-> **Lưu ý**: App sẽ tự động hiển thị UI phù hợp dựa trên `role` của user sau khi login:
-> - `role: "customer"` → Hiển thị giao diện khách hàng
-> - `role: "driver"` → Hiển thị giao diện tài xế
+CHẠY APP NÈ DAUMEMAY :)))
 
 ### Bước 1: Cài đặt dependencies
 ```bash
@@ -393,7 +354,7 @@ flutter run -d emulator-5554
 flutter run
 ```
 
-### Bước 3: Login với tài khoản test
+### Bước 3: Login với tài khoản test    ( KHONG CO TAI KHOAN TEST THI DANG KÍ ĐI HỎI CAILONQUE)
 
 #### Tài khoản Customer:
 ```
@@ -482,73 +443,6 @@ if (user.role == 'customer') {
    ↓
 7. Đến nơi → Click "Hoàn thành" (status: delivered)
 ```
-
----
-
-## 🌐 CHẠY WEB ADMIN (web_admin)
-
-### Web này dành cho: QUẢN TRỊ VIÊN
-Chức năng chính:
-- ✅ Quản lý người dùng (khách hàng, tài xế)
-- ✅ Quản lý đơn hàng
-- ✅ Xem báo cáo thống kê
-- ✅ Quản lý khiếu nại
-- ✅ Cấu hình hệ thống
-
-### Cách 1: Mở trực tiếp bằng browser
-```bash
-# Mở file HTML
-DoAnCNPMNC/web_admin/index.html
-```
-Kéo thả file vào Chrome hoặc double-click
-
-### Cách 2: Dùng Live Server (khuyên dùng)
-```bash
-# Cài đặt Live Server (nếu chưa có)
-npm install -g live-server
-
-# Chạy web server
-cd DoAnCNPMNC/web_admin
-live-server
-```
-Web sẽ mở tại: http://localhost:8080
-
-### Login Web Admin
-```
-Username: admin
-Password: admin123
-```
-(Hoặc dùng tài khoản có role="admin" trong database)
-
-### Cấu trúc web_admin:
-```
-web_admin/
-├── index.html           # Trang chính
-├── login.html           # Trang đăng nhập
-├── js/
-│   ├── main.js         # Logic chính
-│   ├── api.js          # API calls
-│   └── charts.js       # Biểu đồ thống kê
-├── css/
-│   └── style.css       # Styles
-└── README.md
-```
-
-### Config API trong web_admin:
-File: `web_admin/js/api.js`
-```javascript
-const API_BASE_URL = 'http://localhost:3000/api';
-```
-
-### Features cần implement cho web_admin:
-- [ ] Dashboard với charts (đơn hàng, doanh thu)
-- [ ] Quản lý user (CRUD)
-- [ ] Quản lý tài xế (approve, suspend)
-- [ ] Xem chi tiết đơn hàng
-- [ ] Xử lý khiếu nại
-- [ ] Export báo cáo (Excel, PDF)
-- [ ] Cấu hình phí giao hàng
-- [ ] Quản lý thông báo hệ thống
 
 ---
 
