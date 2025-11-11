@@ -44,6 +44,18 @@ const createTables = async () => {
       )
     `);
 
+    // Add vehicle_registration column to users table for drivers
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        BEGIN
+          ALTER TABLE users ADD COLUMN vehicle_registration VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+      END $$;
+    `);
+
     // Orders table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS orders (
@@ -184,6 +196,48 @@ const createTables = async () => {
         
         BEGIN
           ALTER TABLE orders ADD COLUMN received_at TIMESTAMP;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN driver_id INTEGER REFERENCES users(id);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN sender_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN sender_phone VARCHAR(20);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN receiver_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN receiver_phone VARCHAR(20);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN pickup_location TEXT;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN delivery_location TEXT;
         EXCEPTION
           WHEN duplicate_column THEN NULL;
         END;

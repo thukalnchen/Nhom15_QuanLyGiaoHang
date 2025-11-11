@@ -1,0 +1,477 @@
+{
+  "info": {
+    "name": "Stories #20-24 API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"admin@example.com\",\"password\":\"password\"}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Story #20 - Orders Management",
+      "item": [
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/orders-management/?limit=20&offset=0",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders-management"],
+              "query": [
+                {"key": "limit", "value": "20"},
+                {"key": "offset", "value": "0"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Orders with Filters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/orders-management/?status=assigned&vehicleType=bike&sortBy=created_at&sortOrder=DESC",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders-management"],
+              "query": [
+                {"key": "status", "value": "assigned"},
+                {"key": "vehicleType", "value": "bike"},
+                {"key": "sortBy", "value": "created_at"},
+                {"key": "sortOrder", "value": "DESC"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Order Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/orders-management/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders-management", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"delivered\",\"notes\":\"Giao hàng thành công\"}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/orders-management/1/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders-management", "1", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Story #21 - Driver Assignment",
+      "item": [
+        {
+          "name": "Get Available Drivers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/driver-assignment/available?limit=20",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "driver-assignment", "available"],
+              "query": [
+                {"key": "limit", "value": "20"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assign Driver to Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"driverId\":1}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/driver-assignment/orders/1/assign",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "driver-assignment", "orders", "1", "assign"]
+            }
+          }
+        },
+        {
+          "name": "Get Driver Workload",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/driver-assignment/drivers/1/workload",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "driver-assignment", "drivers", "1", "workload"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Story #22 - Route Management",
+      "item": [
+        {
+          "name": "Get All Zones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/routes/zones",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "routes", "zones"]
+            }
+          }
+        },
+        {
+          "name": "Create Zone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"zoneCode\":\"ZONE_01\",\"zoneName\":\"Quận 1, TP.HCM\",\"basePrice\":20000,\"pricePerKm\":5000,\"centerLatitude\":10.7769,\"centerLongitude\":106.7009}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/routes/zones",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "routes", "zones"]
+            }
+          }
+        },
+        {
+          "name": "Get Zone by Coordinates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/routes/zones/by-coordinates?latitude=10.7769&longitude=106.7009",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "routes", "zones", "by-coordinates"],
+              "query": [
+                {"key": "latitude", "value": "10.7769"},
+                {"key": "longitude", "value": "106.7009"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Story #23 - Pricing Policy",
+      "item": [
+        {
+          "name": "Get Pricing Table",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/pricing/pricing",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "pricing", "pricing"]
+            }
+          }
+        },
+        {
+          "name": "Update Pricing",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleType\":\"bike\",\"basePrice\":12000,\"pricePerKm\":5500,\"minimumPrice\":12000,\"surgeMultiplier\":1.2}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/pricing/pricing",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "pricing", "pricing"]
+            }
+          }
+        },
+        {
+          "name": "Get Discounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/pricing/discounts?isActive=true",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "pricing", "discounts"],
+              "query": [
+                {"key": "isActive", "value": "true"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validate Discount Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SUMMER2025\",\"orderValue\":150000}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/pricing/discounts/validate",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "pricing", "discounts", "validate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Story #24 - Reporting",
+      "item": [
+        {
+          "name": "Get Revenue Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/reports/revenue?dateFrom=2025-11-01&dateTo=2025-11-30&groupBy=daily",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "reports", "revenue"],
+              "query": [
+                {"key": "dateFrom", "value": "2025-11-01"},
+                {"key": "dateTo", "value": "2025-11-30"},
+                {"key": "groupBy", "value": "daily"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Delivery Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/reports/delivery-stats?dateFrom=2025-11-01&dateTo=2025-11-30",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "reports", "delivery-stats"],
+              "query": [
+                {"key": "dateFrom", "value": "2025-11-01"},
+                {"key": "dateTo", "value": "2025-11-30"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Driver Performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/reports/driver-performance?dateFrom=2025-11-01&dateTo=2025-11-30&limit=20",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "reports", "driver-performance"],
+              "query": [
+                {"key": "dateFrom", "value": "2025-11-01"},
+                {"key": "dateTo", "value": "2025-11-30"},
+                {"key": "limit", "value": "20"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/reports/dashboard?dateFrom=2025-11-01&dateTo=2025-11-30",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "reports", "dashboard"],
+              "query": [
+                {"key": "dateFrom", "value": "2025-11-01"},
+                {"key": "dateTo", "value": "2025-11-30"}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -155,9 +155,11 @@ const login = async (req, res) => {
           full_name: user.full_name,
           phone: user.phone,
           address: user.address,
-          role: user.role
+          role: user.role,
+          isAdmin: user.role === 'admin'
         },
-        token
+        token,
+        isAdmin: user.role === 'admin'
       }
     });
   } catch (error) {

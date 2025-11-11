@@ -204,59 +204,6 @@ class ApiService {
     }
   }
 
-  // Story #21: Assign driver (manual assignment by warehouse staff)
-  Future<Map<String, dynamic>> assignDriver({
-    required String token,
-    required String orderId,
-    required String driverId,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/warehouse/assign-driver'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'order_id': orderId,
-          'driver_id': driverId,
-        }),
-      );
-
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Lỗi kết nối: ${e.toString()}',
-      };
-    }
-  }
-
-  // Get available drivers
-  Future<Map<String, dynamic>> getAvailableDrivers(String token, {String? vehicleType}) async {
-    try {
-      String url = '$baseUrl/warehouse/drivers/available';
-      if (vehicleType != null) {
-        url += '?vehicle_type=$vehicleType';
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Lỗi kết nối: ${e.toString()}',
-      };
-    }
-  }
-
   // Story #12: Collect COD at warehouse (from sender)
   Future<Map<String, dynamic>> collectCODAtWarehouse({
     required String token,
@@ -328,6 +275,316 @@ class ApiService {
         'success': false,
         'message': 'Lỗi kết nối: ${e.toString()}',
       };
+    }
+  }
+
+  // ===== STORY #20: ORDERS MANAGEMENT =====
+
+  Future<List<Map<String, dynamic>>> getAllOrders(String token, {int page = 1, int limit = 10, String? status}) async {
+    try {
+      String url = '$baseUrl/orders-management?page=$page&limit=$limit';
+      if (status != null) url += '&status=$status';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getOrderById(String token, String orderId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/orders-management/$orderId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<bool> updateOrderStatus(String token, String orderId, String status) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/orders-management/$orderId/status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'status': status}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== STORY #21: DRIVER ASSIGNMENT =====
+
+  Future<List<Map<String, dynamic>>> getAvailableDrivers(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/driver-assignment/available-drivers'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> assignDriver(String token, String orderId, String driverId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/driver-assignment/assign'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'order_id': orderId,
+          'driver_id': driverId,
+        }),
+      );
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== STORY #22: ROUTE MANAGEMENT =====
+
+  Future<List<Map<String, dynamic>>> getZones(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/routes/zones'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRoutes(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/routes/list'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ===== STORY #23: PRICING POLICY =====
+
+  Future<List<Map<String, dynamic>>> getPricingTables(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/pricing/tables'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSurcharges(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/pricing/surcharges'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getDiscounts(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/pricing/discounts'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ===== STORY #24: REPORTING =====
+
+  Future<Map<String, dynamic>> getRevenueReport(String token, {String period = 'today'}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/revenue?period=$period'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDeliveryStats(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/delivery-stats'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getDriverPerformance(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/driver-performance'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getCustomerAnalytics(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/customer-analytics'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDashboard(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/dashboard'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      return {};
     }
   }
 }

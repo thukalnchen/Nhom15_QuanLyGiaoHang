@@ -30,6 +30,7 @@ dependencies:
   qr_flutter: ^4.1.0
   pdf: ^3.10.7
   printing: ^5.11.1
+  fl_chart: ^0.69.0
   # Firebase - Tam thoi comment lai de chay web test cho nhanh. khi nao chay app thi uncomment :((()))
   # firebase_core: ^2.24.2
   # firebase_messaging: ^14.7.9
