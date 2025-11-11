@@ -39,6 +39,24 @@ const createTables = async () => {
         phone VARCHAR(20),
         address TEXT,
         role VARCHAR(20) DEFAULT 'customer',
+        status VARCHAR(20) DEFAULT 'active',
+        fcm_token TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Shipper profiles table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS shipper_profiles (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        vehicle_type VARCHAR(50),
+        vehicle_plate VARCHAR(20),
+        driver_license_number VARCHAR(50),
+        identity_card_number VARCHAR(50),
+        notes TEXT,
+        approved_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -50,13 +68,26 @@ const createTables = async () => {
         id SERIAL PRIMARY KEY,
         order_number VARCHAR(50) UNIQUE NOT NULL,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        restaurant_name VARCHAR(255) NOT NULL,
-        items JSONB NOT NULL,
+        shipper_id INTEGER REFERENCES users(id),
+        restaurant_name VARCHAR(255),
+        items JSONB,
         total_amount DECIMAL(10,2) NOT NULL,
         delivery_fee DECIMAL(10,2) DEFAULT 0,
         status VARCHAR(50) DEFAULT 'pending',
         delivery_address TEXT NOT NULL,
+        delivery_lat DECIMAL(10,7),
+        delivery_lng DECIMAL(10,7),
         delivery_phone VARCHAR(20),
+        pickup_address TEXT,
+        pickup_lat DECIMAL(10,7),
+        pickup_lng DECIMAL(10,7),
+        recipient_name VARCHAR(255),
+        recipient_phone VARCHAR(20),
+        distance DECIMAL(10,2),
+        duration VARCHAR(50),
+        services JSONB DEFAULT '[]'::jsonb,
+        base_fare DECIMAL(10,2),
+        service_fee DECIMAL(10,2) DEFAULT 0,
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -122,7 +153,85 @@ const createTables = async () => {
         END;
         
         BEGIN
+          ALTER TABLE orders ADD COLUMN pickup_lat DECIMAL(10,7);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN pickup_lng DECIMAL(10,7);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN delivery_lat DECIMAL(10,7);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN delivery_lng DECIMAL(10,7);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN shipper_id INTEGER REFERENCES users(id);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
           ALTER TABLE orders ADD COLUMN vehicle_type VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN recipient_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN recipient_phone VARCHAR(20);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN distance DECIMAL(10,2);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN duration VARCHAR(50);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN services JSONB DEFAULT '[]'::jsonb;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN base_fare DECIMAL(10,2);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN service_fee DECIMAL(10,2) DEFAULT 0;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active';
         EXCEPTION
           WHEN duplicate_column THEN NULL;
         END;
@@ -187,7 +296,19 @@ const createTables = async () => {
         EXCEPTION
           WHEN duplicate_column THEN NULL;
         END;
+        
+        BEGIN
+          ALTER TABLE users ADD COLUMN fcm_token TEXT;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
       END $$;
+    `);
+
+    // Relax constraints for delivery service compatibility
+    await pool.query(`
+      ALTER TABLE orders ALTER COLUMN restaurant_name DROP NOT NULL;
+      ALTER TABLE orders ALTER COLUMN items DROP NOT NULL;
     `);
 
     // Order status history table
@@ -220,9 +341,12 @@ const createTables = async () => {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+      CREATE INDEX IF NOT EXISTS idx_orders_shipper_id ON orders(shipper_id);
       CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
       CREATE INDEX IF NOT EXISTS idx_delivery_tracking_order_id ON delivery_tracking(order_id);
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+      CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
     `);
 
     console.log('✅ Database tables created successfully');

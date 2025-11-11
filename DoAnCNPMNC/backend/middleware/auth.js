@@ -24,6 +24,19 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Authorize by role
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Bạn không có quyền truy cập tính năng này'
+      });
+    }
+    next();
+  };
+};
+
 // Generate JWT token
 const generateToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -43,5 +56,6 @@ const verifyToken = (token) => {
 module.exports = {
   authenticateToken,
   generateToken,
-  verifyToken
+  verifyToken,
+  authorizeRoles
 };
