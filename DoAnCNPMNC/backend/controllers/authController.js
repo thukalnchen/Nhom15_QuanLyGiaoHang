@@ -20,9 +20,19 @@ const loginSchema = Joi.object({
 // Register new user
 const register = async (req, res) => {
   try {
+    // Log incoming request for debugging
+    console.log('📝 Register request received:', {
+      email: req.body.email,
+      full_name: req.body.full_name,
+      phone: req.body.phone,
+      address: req.body.address,
+      role: req.body.role
+    });
+    
     // Validate input
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
+      console.log('❌ Validation error:', error.details[0].message);
       return res.status(400).json({
         status: 'error',
         message: error.details[0].message

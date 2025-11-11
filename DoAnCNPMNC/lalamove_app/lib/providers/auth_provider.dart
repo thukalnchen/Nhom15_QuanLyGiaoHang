@@ -155,7 +155,7 @@ class AuthProvider with ChangeNotifier {
           'full_name': fullName,
           'phone': phone,
           'address': address,
-          'role': 'customer', // Default role for registration
+          // role is automatically set to 'customer' in backend
         }),
       );
       
