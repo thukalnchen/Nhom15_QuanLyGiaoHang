@@ -1,9 +1,38 @@
 // Configuration
 const API_BASE_URL = 'http://localhost:3000/api';
+const AUTO_REFRESH_INTERVAL = 45000;
+const LOADING_SPINNER_DELAY = 150;
 let authToken = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
 let isDemoMode = localStorage.getItem('demoMode') === 'true';
 let socket = null;
 let charts = {};
+let loadingModalInstance = null;
+let loadingTimeout = null;
+let activeLoadingRequests = 0;
+let refreshInProgress = false;
+let suppressNotifications = false;
+
+function getLoadingModalInstance() {
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap is not loaded');
+        return null;
+    }
+
+    const modalElement = document.getElementById('loadingModal');
+    if (!modalElement) {
+        console.warn('Loading modal element not found');
+        return null;
+    }
+
+    if (!loadingModalInstance) {
+        loadingModalInstance = bootstrap.Modal.getOrCreateInstance(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+
+    return loadingModalInstance;
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -98,6 +127,9 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         }
     };
 
+    if (!authToken) {
+        authToken = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+    }
     if (authToken) {
         options.headers['Authorization'] = `Bearer ${authToken}`;
     }
@@ -108,10 +140,19 @@ async function apiCall(endpoint, method = 'GET', data = null) {
 
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-        const result = await response.json();
+
+        const rawText = await response.text();
+        let result = {};
+        if (rawText) {
+            try {
+                result = JSON.parse(rawText);
+            } catch (parseError) {
+                console.error('Không thể parse JSON từ API:', parseError);
+                throw new Error(result?.message || 'Dữ liệu trả về không hợp lệ');
+            }
+        }
 
         if (!response.ok) {
-            // Handle 401 Unauthorized
             if (response.status === 401) {
                 console.error('Unauthorized access. Redirecting to login...');
                 localStorage.removeItem('token');
@@ -121,7 +162,7 @@ async function apiCall(endpoint, method = 'GET', data = null) {
                 window.location.href = 'login.html';
                 throw new Error('Session expired. Please login again.');
             }
-            throw new Error(result.message || 'API request failed');
+            throw new Error(result.message || `API request failed: ${response.status}`);
         }
 
         return result;
@@ -129,7 +170,7 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         console.error('API Error:', error);
         
         // Don't show error notification for auth redirect
-        if (!error.message.includes('Session expired')) {
+        if (!suppressNotifications && !error.message.includes('Session expired')) {
             showNotification(error.message || 'Lỗi kết nối API', 'error');
         }
         throw error;
@@ -158,22 +199,32 @@ function showTracking() {
     loadActiveDeliveries();
 }
 
+function showShippers() {
+    hideAllSections();
+    const section = document.getElementById('shippers-section');
+    if (section) {
+        section.style.display = 'block';
+    }
+    setActiveMenu(3);
+    loadShippers();
+}
+
 function showUsers() {
     hideAllSections();
     document.getElementById('users-section').style.display = 'block';
-    setActiveMenu(3);
+    setActiveMenu(4);
     loadUsers();
 }
 
 function showAnalytics() {
     hideAllSections();
     document.getElementById('analytics-section').style.display = 'block';
-    setActiveMenu(4);
+    setActiveMenu(5);
     loadAnalytics();
 }
 
 function hideAllSections() {
-    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'users-section', 'analytics-section'];
+    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section'];
     sections.forEach(section => {
         const element = document.getElementById(section);
         if (element) {
@@ -194,37 +245,67 @@ function setActiveMenu(index) {
 }
 
 // Dashboard functions
-async function loadDashboard() {
+async function loadDashboard(options = {}) {
+    const { silent = false } = options;
     try {
-        showLoading();
-        
-        // Load dashboard statistics
-        const statsResponse = await apiCall('/admin/stats');
-        
-        if (statsResponse.status === 'success') {
-            const stats = statsResponse.data;
-            
-            // Update stat cards
-            document.getElementById('total-orders').textContent = stats.totalOrders || 0;
-            document.getElementById('delivered-orders').textContent = stats.deliveredOrders || 0;
-            document.getElementById('processing-orders').textContent = stats.processingOrders || 0;
-            document.getElementById('total-revenue').textContent = formatCurrency(stats.totalRevenue || 0);
-            
-            // Update charts
-            updateOrdersChart(stats.ordersChart || []);
-            updateStatusChart(stats.statusCounts || {});
+        if (!silent) {
+            showLoading();
         }
-        
-        // Load recent orders
-        const ordersResponse = await apiCall('/admin/orders?limit=5');
-        if (ordersResponse.status === 'success') {
-            displayRecentOrders(ordersResponse.data.orders);
+
+        const [statsResult, ordersResult] = await Promise.allSettled([
+            apiCall('/admin/stats'),
+            apiCall('/admin/orders?limit=5')
+        ]);
+
+        if (statsResult.status === 'fulfilled') {
+            const statsResponse = statsResult.value;
+            if (statsResponse.status === 'success') {
+                const stats = statsResponse.data;
+
+                const totalOrdersEl = document.getElementById('total-orders');
+                const deliveredOrdersEl = document.getElementById('delivered-orders');
+                const processingOrdersEl = document.getElementById('processing-orders');
+                const totalRevenueEl = document.getElementById('total-revenue');
+
+                if (totalOrdersEl) totalOrdersEl.textContent = stats.totalOrders || 0;
+                if (deliveredOrdersEl) deliveredOrdersEl.textContent = stats.deliveredOrders || 0;
+                if (processingOrdersEl) processingOrdersEl.textContent = stats.processingOrders || 0;
+                if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(stats.totalRevenue || 0);
+
+                updateOrdersChart(stats.ordersChart || []);
+                updateStatusChart(stats.statusCounts || {});
+            } else if (!silent) {
+                showNotification(statsResponse.message || 'Không thể tải thống kê.', 'error');
+            }
+        } else {
+            console.error('Error loading dashboard stats:', statsResult.reason);
+            if (!silent) {
+                showNotification('Không thể tải thống kê.', 'error');
+            }
         }
-        
-        hideLoading();
+
+        if (ordersResult.status === 'fulfilled') {
+            const ordersResponse = ordersResult.value;
+            if (ordersResponse.status === 'success') {
+                displayRecentOrders(ordersResponse.data?.orders || []);
+            } else if (!silent) {
+                showNotification(ordersResponse.message || 'Không thể tải đơn hàng gần đây.', 'error');
+            }
+        } else {
+            console.error('Error loading recent orders:', ordersResult.reason);
+            if (!silent) {
+                showNotification('Không thể tải đơn hàng gần đây.', 'error');
+            }
+        }
     } catch (error) {
         console.error('Error loading dashboard:', error);
-        hideLoading();
+        if (!silent) {
+            showNotification(error.message || 'Không thể tải Dashboard', 'error');
+        }
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -256,10 +337,13 @@ function displayRecentOrders(orders) {
 }
 
 // Orders functions
-async function loadOrders() {
+async function loadOrders(options = {}) {
+    const { silent = false } = options;
     try {
-        showLoading();
-        
+        if (!silent) {
+            showLoading();
+        }
+
         const statusFilter = document.getElementById('status-filter').value;
         let endpoint = '/admin/orders?limit=50';
         
@@ -270,13 +354,19 @@ async function loadOrders() {
         const response = await apiCall(endpoint);
         
         if (response.status === 'success') {
-            displayOrders(response.data.orders);
+            displayOrders(response.data?.orders || []);
+        } else if (!silent) {
+            showNotification(response.message || 'Không thể tải danh sách đơn hàng', 'error');
         }
-        
-        hideLoading();
     } catch (error) {
         console.error('Error loading orders:', error);
-        hideLoading();
+        if (!silent) {
+            showNotification(error.message || 'Không thể tải danh sách đơn hàng', 'error');
+        }
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -292,7 +382,19 @@ function displayOrders(orders) {
     }
     
     orders.forEach(order => {
-        const items = JSON.parse(order.items || '[]');
+        let items = [];
+        if (Array.isArray(order.items)) {
+            items = order.items;
+        } else if (typeof order.items === 'string') {
+            try {
+                items = JSON.parse(order.items || '[]');
+            } catch (err) {
+                console.warn('Không thể parse items:', err);
+                items = [];
+            }
+        } else if (order.items && typeof order.items === 'object') {
+            items = Object.values(order.items);
+        }
         const itemsText = items.map(item => `${item.name} x${item.quantity}`).join(', ');
         
         const row = document.createElement('tr');
@@ -335,7 +437,19 @@ async function showOrderDetails(orderId) {
         
         if (response.status === 'success') {
             const order = response.data.order;
-            const items = JSON.parse(order.items || '[]');
+            let items = [];
+            if (Array.isArray(order.items)) {
+                items = order.items;
+            } else if (typeof order.items === 'string') {
+                try {
+                    items = JSON.parse(order.items || '[]');
+                } catch (err) {
+                    console.warn('Không thể parse items:', err);
+                    items = [];
+                }
+            } else if (order.items && typeof order.items === 'object') {
+                items = Object.values(order.items);
+            }
             
             const modalBody = document.getElementById('order-details');
             modalBody.innerHTML = `
@@ -420,11 +534,13 @@ async function showOrderDetails(orderId) {
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('orderModal'));
             modal.show();
+        } else {
+            showNotification(response.message || 'Không thể tải chi tiết đơn hàng', 'error');
         }
-        
-        hideLoading();
     } catch (error) {
         console.error('Error loading order details:', error);
+        showNotification(error.message || 'Không thể tải chi tiết đơn hàng', 'error');
+    } finally {
         hideLoading();
     }
 }
@@ -460,20 +576,25 @@ async function updateOrderStatus() {
 }
 
 // Tracking functions
-async function loadActiveDeliveries() {
+async function loadActiveDeliveries(options = {}) {
+    const { silent = false } = options;
     try {
-        showLoading();
-        
+        if (!silent) {
+            showLoading();
+        }
+
         const response = await apiCall('/admin/deliveries/active');
         
         if (response.status === 'success') {
             displayActiveDeliveries(response.data);
         }
         
-        hideLoading();
     } catch (error) {
         console.error('Error loading active deliveries:', error);
-        hideLoading();
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -505,11 +626,11 @@ function displayActiveDeliveries(deliveries) {
                 <i class="fas fa-phone me-1"></i> ${delivery.customer_phone || 'N/A'}<br>
                 <i class="fas fa-map-marker-alt me-1"></i> ${delivery.delivery_address.substring(0, 50)}...
             </div>
-            ${delivery.current_latitude && delivery.current_longitude ? `
+            ${delivery.latitude && delivery.longitude ? `
                 <div class="mt-2">
                     <small class="text-success">
                         <i class="fas fa-location-arrow me-1"></i>
-                        Vị trí hiện tại: ${delivery.current_latitude.toFixed(6)}, ${delivery.current_longitude.toFixed(6)}
+                        Vị trí hiện tại: ${delivery.latitude.toFixed(6)}, ${delivery.longitude.toFixed(6)}
                     </small>
                 </div>
             ` : ''}
@@ -518,21 +639,167 @@ function displayActiveDeliveries(deliveries) {
     });
 }
 
-// Users functions
-async function loadUsers() {
+// Shippers functions
+async function loadShippers(options = {}) {
+    const { silent = false } = options;
+    try {
+        if (!silent) {
+            showLoading();
+        }
+        const statusFilter = document.getElementById('shipper-status-filter');
+        const status = statusFilter ? statusFilter.value : '';
+        let endpoint = '/admin/shippers';
+        if (status) {
+            endpoint += `?status=${status}`;
+        }
+        const response = await apiCall(endpoint);
+        if (response.status === 'success') {
+            displayShippers(response.data || []);
+        }
+    } catch (error) {
+        console.error('Error loading shippers:', error);
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
+    }
+}
+
+function displayShippers(shippers) {
+    const tbody = document.getElementById('shippers-table');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!shippers || shippers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Chưa có hồ sơ shipper</td></tr>';
+        return;
+    }
+
+    shippers.forEach(shipper => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${shipper.full_name || 'N/A'}</td>
+            <td>${shipper.email || 'N/A'}</td>
+            <td>${shipper.phone || 'N/A'}</td>
+            <td>${shipper.vehicle_type || 'N/A'}</td>
+            <td>${shipper.vehicle_plate || 'N/A'}</td>
+            <td>${renderShipperStatusBadge(shipper.status)}</td>
+            <td>${formatDateTime(shipper.created_at)}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="showShipperDetails(${shipper.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function refreshShippers() {
+    loadShippers();
+}
+
+async function showShipperDetails(shipperId) {
     try {
         showLoading();
-        
+        const response = await apiCall(`/admin/shippers/${shipperId}`);
+        if (response.status === 'success') {
+            const shipper = response.data;
+            const modalBody = document.getElementById('shipper-details');
+            modalBody.dataset.shipperId = shipper.id;
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Thông tin tài khoản</h6>
+                        <p><strong>Họ tên:</strong> ${shipper.full_name || 'N/A'}</p>
+                        <p><strong>Email:</strong> ${shipper.email || 'N/A'}</p>
+                        <p><strong>Số điện thoại:</strong> ${shipper.phone || 'N/A'}</p>
+                        <p><strong>Địa chỉ:</strong> ${shipper.address || 'N/A'}</p>
+                        <p><strong>Trạng thái:</strong> ${renderShipperStatusBadge(shipper.status)}</p>
+                        <p><strong>Ngày đăng ký:</strong> ${formatDateTime(shipper.created_at)}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Thông tin xe & giấy tờ</h6>
+                        <p><strong>Loại xe:</strong> ${shipper.vehicle_type || 'N/A'}</p>
+                        <p><strong>Biển số:</strong> ${shipper.vehicle_plate || 'N/A'}</p>
+                        <p><strong>Bằng lái:</strong> ${shipper.driver_license_number || 'N/A'}</p>
+                        <p><strong>CCCD/CMND:</strong> ${shipper.identity_card_number || 'N/A'}</p>
+                        <p><strong>Ngày duyệt:</strong> ${shipper.approved_at ? formatDateTime(shipper.approved_at) : 'Chưa duyệt'}</p>
+                    </div>
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <label class="form-label">Ghi chú nội bộ</label>
+                    <textarea class="form-control" id="shipper-notes-input" rows="3" placeholder="Nhập ghi chú cho shipper">${shipper.notes || ''}</textarea>
+                </div>
+            `;
+
+            const modal = new bootstrap.Modal(document.getElementById('shipperModal'));
+            modal.show();
+        }
+        hideLoading();
+    } catch (error) {
+        console.error('Error loading shipper details:', error);
+        hideLoading();
+    }
+}
+
+async function updateShipperStatusFromModal(status) {
+    const modalBody = document.getElementById('shipper-details');
+    const shipperId = modalBody.dataset.shipperId;
+    if (!shipperId) {
+        showNotification('Không xác định được shipper', 'error');
+        return;
+    }
+
+    if (status === 'rejected' && !confirm('Bạn có chắc chắn muốn từ chối hồ sơ shipper này?')) {
+        return;
+    }
+
+    try {
+        showLoading();
+        const notes = document.getElementById('shipper-notes-input')?.value || '';
+        const response = await apiCall(`/admin/shippers/${shipperId}/status`, 'PATCH', {
+            status,
+            notes
+        });
+
+        if (response.status === 'success') {
+            showNotification('Cập nhật trạng thái shipper thành công', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('shipperModal'));
+            if (modal) {
+                modal.hide();
+            }
+            loadShippers();
+        }
+        hideLoading();
+    } catch (error) {
+        console.error('Error updating shipper status:', error);
+        hideLoading();
+    }
+}
+
+// Users functions
+async function loadUsers(options = {}) {
+    const { silent = false } = options;
+    try {
+        if (!silent) {
+            showLoading();
+        }
+
         const response = await apiCall('/admin/users?limit=50');
         
         if (response.status === 'success') {
             displayUsers(response.data.users);
         }
         
-        hideLoading();
     } catch (error) {
         console.error('Error loading users:', error);
-        hideLoading();
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -576,10 +843,13 @@ function viewUserDetails(userId) {
 }
 
 // Analytics functions
-async function loadAnalytics() {
+async function loadAnalytics(options = {}) {
+    const { silent = false } = options;
     try {
-        showLoading();
-        
+        if (!silent) {
+            showLoading();
+        }
+
         const period = document.getElementById('analytics-period')?.value || 7;
         const response = await apiCall(`/admin/analytics?period=${period}`);
         
@@ -593,10 +863,12 @@ async function loadAnalytics() {
             updateRestaurantsChart(data.topRestaurants || []);
         }
         
-        hideLoading();
     } catch (error) {
         console.error('Error loading analytics:', error);
-        hideLoading();
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -814,17 +1086,69 @@ function getStatusText(status) {
     return statusMap[status] || status;
 }
 
+function getShipperStatusText(status) {
+    const statusMap = {
+        pending: 'Chờ duyệt',
+        approved: 'Đã duyệt',
+        rejected: 'Từ chối',
+        suspended: 'Tạm khóa'
+    };
+    return statusMap[status] || status;
+}
+
+function renderShipperStatusBadge(status) {
+    const classes = {
+        pending: 'bg-warning text-dark',
+        approved: 'bg-success',
+        rejected: 'bg-danger',
+        suspended: 'bg-secondary'
+    };
+    const badgeClass = classes[status] || 'bg-light text-dark';
+    return `<span class="badge ${badgeClass}">${getShipperStatusText(status)}</span>`;
+}
+
 function showLoading() {
-    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
-    modal.show();
+    activeLoadingRequests += 1;
+    if (loadingTimeout) {
+        return;
+    }
+
+    loadingTimeout = setTimeout(() => {
+        loadingTimeout = null;
+        const modal = getLoadingModalInstance();
+        if (modal && activeLoadingRequests > 0) {
+            modal.show();
+        }
+    }, LOADING_SPINNER_DELAY);
 }
 
 function hideLoading() {
-    const modalElement = document.getElementById('loadingModal');
-    const modal = bootstrap.Modal.getInstance(modalElement);
-    if (modal) {
-        modal.hide();
+    if (activeLoadingRequests > 0) {
+        activeLoadingRequests -= 1;
     }
+
+    if (activeLoadingRequests > 0) {
+        return;
+    }
+
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+    }
+
+    const modal = getLoadingModalInstance();
+    if (!modal) {
+        return;
+    }
+
+    modal.hide();
+
+    setTimeout(() => {
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop && !document.body.classList.contains('modal-open')) {
+            backdrop.remove();
+        }
+    }, 150);
 }
 
 function showNotification(message, type = 'info') {
@@ -844,22 +1168,38 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-function refreshCurrentView() {
+async function refreshCurrentView() {
+    if (refreshInProgress) {
+        return;
+    }
+    refreshInProgress = true;
     // Determine which section is currently visible and refresh it
     const sections = {
         'dashboard-section': loadDashboard,
         'orders-section': loadOrders,
         'tracking-section': loadActiveDeliveries,
+        'shippers-section': loadShippers,
         'users-section': loadUsers,
         'analytics-section': loadAnalytics
     };
     
-    for (const [sectionId, loadFunction] of Object.entries(sections)) {
-        const section = document.getElementById(sectionId);
-        if (section && section.style.display !== 'none') {
-            loadFunction();
-            break;
+    try {
+        for (const [sectionId, loadFunction] of Object.entries(sections)) {
+            const section = document.getElementById(sectionId);
+            if (section && section.style.display !== 'none') {
+                suppressNotifications = true;
+                try {
+                    await loadFunction({ silent: true });
+                } finally {
+                    suppressNotifications = false;
+                }
+                break;
+            }
         }
+    } catch (error) {
+        console.error('Error refreshing current view:', error);
+    } finally {
+        refreshInProgress = false;
     }
 }
 
@@ -1017,8 +1357,8 @@ function generateMockActiveDeliveries() {
             customer_phone: `098765${String(i).padStart(4, '0')}`,
             delivery_address: `123 Đường XYZ, Quận ${i + 1}, TP.HCM`,
             status: i % 2 === 0 ? 'processing' : 'shipped',
-            current_latitude: 10.762622 + (Math.random() - 0.5) * 0.1,
-            current_longitude: 106.660172 + (Math.random() - 0.5) * 0.1,
+            latitude: 10.762622 + (Math.random() - 0.5) * 0.1,
+            longitude: 106.660172 + (Math.random() - 0.5) * 0.1,
             last_location_update: new Date().toISOString()
         });
     }
@@ -1066,9 +1406,9 @@ function generateMockRestaurants() {
     ];
 }
 
-// Auto-refresh every 30 seconds for real-time data
+// Auto-refresh at a configurable interval for real-time data
 setInterval(() => {
     if (!isDemoMode) {
         refreshCurrentView();
     }
-}, 30000);
+}, AUTO_REFRESH_INTERVAL);

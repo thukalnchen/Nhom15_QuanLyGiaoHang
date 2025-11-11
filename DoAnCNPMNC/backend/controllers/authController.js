@@ -12,9 +12,23 @@ const registerSchema = Joi.object({
   address: Joi.string().optional()
 });
 
+const shipperRegisterSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(6).required(),
+  full_name: Joi.string().min(2).required(),
+  phone: Joi.string().pattern(/^[0-9]{9,11}$/).required(),
+  address: Joi.string().optional(),
+  vehicle_type: Joi.string().required(),
+  vehicle_plate: Joi.string().required(),
+  driver_license_number: Joi.string().required(),
+  identity_card_number: Joi.string().required(),
+  notes: Joi.string().allow('', null)
+});
+
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required()
+  password: Joi.string().required(),
+  role: Joi.string().valid('customer', 'shipper', 'intake_staff', 'admin').optional()
 });
 
 // Register new user
@@ -62,7 +76,7 @@ const register = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO users (email, password, full_name, phone, address, role)
        VALUES ($1, $2, $3, $4, $5, 'customer')
-       RETURNING id, email, full_name, phone, address, role, created_at`,
+       RETURNING id, email, full_name, phone, address, role, status, created_at`,
       [email, hashedPassword, full_name, phone, address]
     );
 
@@ -86,6 +100,7 @@ const register = async (req, res) => {
           phone: user.phone,
           address: user.address,
           role: user.role,
+          status: user.status,
           created_at: user.created_at
         },
         token
@@ -97,6 +112,92 @@ const register = async (req, res) => {
       status: 'error',
       message: 'Internal server error'
     });
+  }
+};
+
+// Register new shipper (pending approval)
+const registerShipper = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { error, value } = shipperRegisterSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    const {
+      email,
+      password,
+      full_name,
+      phone,
+      address,
+      vehicle_type,
+      vehicle_plate,
+      driver_license_number,
+      identity_card_number,
+      notes
+    } = value;
+
+    const existingUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        status: 'error',
+        message: 'Email đã được sử dụng'
+      });
+    }
+
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    await client.query('BEGIN');
+
+    const userResult = await client.query(
+      `INSERT INTO users (email, password, full_name, phone, address, role, status)
+       VALUES ($1, $2, $3, $4, $5, 'shipper', 'pending')
+       RETURNING id, email, full_name, phone, address, role, status, created_at`,
+      [email, hashedPassword, full_name, phone, address || null]
+    );
+
+    const shipper = userResult.rows[0];
+
+    await client.query(
+      `INSERT INTO shipper_profiles (
+        user_id, vehicle_type, vehicle_plate, driver_license_number, identity_card_number, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        shipper.id,
+        vehicle_type,
+        vehicle_plate,
+        driver_license_number,
+        identity_card_number,
+        notes || null
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Đăng ký shipper thành công. Vui lòng chờ quản trị viên duyệt hồ sơ.',
+      data: {
+        user: shipper
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Register shipper error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể đăng ký shipper. Vui lòng thử lại sau.'
+    });
+  } finally {
+    client.release();
   }
 };
 
@@ -112,11 +213,11 @@ const login = async (req, res) => {
       });
     }
 
-    const { email, password } = value;
+    const { email, password, role: requestedRole } = value;
 
     // Find user
     const result = await pool.query(
-      'SELECT id, email, password, full_name, phone, address, role FROM users WHERE email = $1',
+      'SELECT id, email, password, full_name, phone, address, role, status FROM users WHERE email = $1',
       [email]
     );
 
@@ -128,6 +229,38 @@ const login = async (req, res) => {
     }
 
     const user = result.rows[0];
+
+    // Enforce role-based login when requested
+    if (requestedRole && user.role !== requestedRole) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Bạn không có quyền truy cập vào ứng dụng này'
+      });
+    }
+
+    if (user.role === 'shipper') {
+      if (user.status === 'pending') {
+        return res.status(403).json({
+          status: 'error',
+          code: 'SHIPPER_PENDING',
+          message: 'Tài khoản shipper đang chờ duyệt. Vui lòng liên hệ quản trị viên.'
+        });
+      }
+      if (user.status === 'rejected') {
+        return res.status(403).json({
+          status: 'error',
+          code: 'SHIPPER_REJECTED',
+          message: 'Tài khoản shipper đã bị từ chối.'
+        });
+      }
+      if (user.status === 'suspended') {
+        return res.status(403).json({
+          status: 'error',
+          code: 'SHIPPER_SUSPENDED',
+          message: 'Tài khoản shipper đang bị tạm khóa.'
+        });
+      }
+    }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -155,7 +288,8 @@ const login = async (req, res) => {
           full_name: user.full_name,
           phone: user.phone,
           address: user.address,
-          role: user.role
+          role: user.role,
+          status: user.status
         },
         token
       }
@@ -237,6 +371,7 @@ const updateProfile = async (req, res) => {
 
 module.exports = {
   register,
+  registerShipper,
   login,
   getProfile,
   updateProfile

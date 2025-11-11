@@ -12,6 +12,7 @@ const userRoutes = require('./routes/users');
 const trackingRoutes = require('./routes/tracking');
 const adminRoutes = require('./routes/admin');
 const warehouseRoutes = require('./routes/warehouse');
+const shipperRoutes = require('./routes/shippers');
 const notificationRoutes = require('./routes/notifications');
 const complaintRoutes = require('./routes/complaints');
 const { connectDB } = require('./config/database');
@@ -31,29 +32,37 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration for development
-app.use(cors({
+// CORS configuration (always allow during development)
+const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
-    
-    // Allow all localhost origins for development
+
+    // Auto allow localhost / 127.0.0.1
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return callback(null, true);
     }
-    
-    // For production, check against whitelist
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      return callback(null, true);
+
+    // In production, check whitelist from env (optional)
+    const whitelistRaw = process.env.CORS_ORIGIN;
+    if (whitelistRaw) {
+      const whitelist = whitelistRaw.split(',').map(item => item.trim()).filter(Boolean);
+      if (whitelist.includes(origin)) {
+        return callback(null, true);
+      }
+      console.error(`Blocked by CORS policy: ${origin}`);
+      return callback(new Error('Not allowed by CORS'));
     }
-    
-    callback(new Error('Not allowed by CORS'));
+
+    // Fallback: allow all
+    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -79,6 +88,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/shippers', shipperRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
