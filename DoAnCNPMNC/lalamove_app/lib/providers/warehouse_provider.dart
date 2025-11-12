@@ -191,16 +191,9 @@ class WarehouseProvider with ChangeNotifier {
     String? vehicleType,
   }) async {
     try {
-      final response = await _apiService.getAvailableDrivers(token, vehicleType: vehicleType);
+      final response = await _apiService.getAvailableDrivers(token);
       
-      if (response['success']) {
-        final List<dynamic> driversData = response['drivers'] ?? [];
-        return driversData.cast<Map<String, dynamic>>();
-      } else {
-        _errorMessage = response['message'] ?? 'Không thể tải danh sách tài xế';
-        notifyListeners();
-        return [];
-      }
+      return response;
     } catch (e) {
       _errorMessage = 'Lỗi kết nối: ${e.toString()}';
       notifyListeners();
@@ -219,22 +212,14 @@ class WarehouseProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.assignDriver(
-        token: token,
-        orderId: orderId,
-        driverId: driverId,
-      );
+      final response = await _apiService.assignDriver(token, orderId, driverId);
 
       _isLoading = false;
-      if (response['success']) {
-        final updatedOrder = Order.fromJson(response['order']);
-        _classifiedOrders.removeWhere((o) => o.id == orderId);
-        _readyOrders.add(updatedOrder);
-        _currentOrder = updatedOrder;
+      if (response) {
         notifyListeners();
         return true;
       } else {
-        _errorMessage = response['message'] ?? 'Không thể phân tài xế';
+        _errorMessage = 'Không thể phân tài xế';
         notifyListeners();
         return false;
       }

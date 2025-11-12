@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../customer/home/home_screen.dart' as customer_home;
 import '../intake/home/home_screen.dart' as intake_home;
+import '../admin/admin_management_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -49,6 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
         case UserRole.intakeStaff:
           targetScreen = const intake_home.HomeScreen();
+          break;
+        case UserRole.admin:
+          targetScreen = const AdminManagementScreen();
           break;
         default:
           ScaffoldMessenger.of(context).showSnackBar(

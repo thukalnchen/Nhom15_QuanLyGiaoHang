@@ -15,6 +15,11 @@ const warehouseRoutes = require('./routes/warehouse');
 const shipperRoutes = require('./routes/shippers');
 const notificationRoutes = require('./routes/notifications');
 const complaintRoutes = require('./routes/complaints');
+const ordersManagementRoutes = require('./routes/ordersManagement');
+const driverAssignmentRoutes = require('./routes/driverAssignment');
+const routeManagementRoutes = require('./routes/routeManagement');
+const pricingPolicyRoutes = require('./routes/pricingPolicy');
+const reportingRoutes = require('./routes/reporting');
 const { connectDB } = require('./config/database');
 const { authenticateToken } = require('./middleware/auth');
 
@@ -89,6 +94,12 @@ app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/shippers', shipperRoutes);
+// Story #20-24 routes
+app.use('/api/orders-management', authenticateToken, ordersManagementRoutes);
+app.use('/api/driver-assignment', authenticateToken, driverAssignmentRoutes);
+app.use('/api/routes', authenticateToken, routeManagementRoutes);
+app.use('/api/pricing', authenticateToken, pricingPolicyRoutes);
+app.use('/api/reports', authenticateToken, reportingRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -54,12 +54,21 @@ const createOrder = async (req, res) => {
     // Generate unique order number
     const orderNumber = `ORD-${Date.now()}-${uuidv4().substring(0, 8).toUpperCase()}`;
 
+    // Get user info for sender details
+    const userResult = await pool.query(
+      'SELECT full_name, phone FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const userInfo = userResult.rows[0] || {};
+
     // Create order
     const result = await pool.query(
       `INSERT INTO orders (order_number, user_id, restaurant_name, items, total_amount, 
                           delivery_fee, delivery_address, delivery_phone, notes, status,
-                          customer_estimated_size, customer_requested_vehicle)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11)
+                          customer_estimated_size, customer_requested_vehicle,
+                          sender_name, sender_phone, receiver_name, receiver_phone,
+                          pickup_location, delivery_location, vehicle_type, payment_method, payment_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13, $14, $15, $16, $17, $18, 'cod', 'pending')
        RETURNING *`,
       [
         orderNumber,
@@ -72,7 +81,14 @@ const createOrder = async (req, res) => {
         delivery_phone,
         notes,
         customer_estimated_size || null,
-        customer_requested_vehicle || null
+        customer_requested_vehicle || null,
+        userInfo.full_name || 'N/A',  // sender_name (from user account)
+        userInfo.phone || 'N/A',       // sender_phone (from user account)
+        'Người nhận',                  // receiver_name (default, can be updated later)
+        delivery_phone || 'N/A',       // receiver_phone
+        restaurant_name,               // pickup_location (using restaurant_name as pickup)
+        delivery_address,              // delivery_location
+        customer_requested_vehicle || 'bike' // vehicle_type
       ]
     );
 

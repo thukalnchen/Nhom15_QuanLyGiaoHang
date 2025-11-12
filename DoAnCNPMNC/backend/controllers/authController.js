@@ -291,7 +291,8 @@ const login = async (req, res) => {
           role: user.role,
           status: user.status
         },
-        token
+        token,
+        isAdmin: user.role === 'admin'
       }
     });
   } catch (error) {
