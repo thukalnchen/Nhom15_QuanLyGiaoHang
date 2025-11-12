@@ -3,546 +3,499 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Food Delivery Admin - Dashboard</title>
-    
-    <!-- Bootstrap CSS -->
+    <title>Lalamove Admin - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Socket.IO -->
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    
-    <style>
-        :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --dark-color: #1f2937;
-            --light-color: #f8fafc;
-        }
-
-        body {
-            background-color: var(--light-color);
-            font-family: 'Inter', sans-serif;
-        }
-
-        .sidebar {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            min-height: 100vh;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin: 4px 0;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-            transform: translateX(5px);
-        }
-
-        .main-content {
-            padding: 20px;
-        }
-
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.2s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-        }
-
-        .stat-card.success {
-            background: linear-gradient(135deg, var(--success-color), #059669);
-        }
-
-        .stat-card.warning {
-            background: linear-gradient(135deg, var(--warning-color), #d97706);
-        }
-
-        .stat-card.danger {
-            background: linear-gradient(135deg, var(--danger-color), #dc2626);
-        }
-
-        .table-responsive {
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .table th {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            font-weight: 600;
-        }
-
-        .badge {
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-weight: 500;
-        }
-
-        .status-pending { background-color: var(--warning-color); }
-        .status-processing { background-color: var(--primary-color); }
-        .status-shipped { background-color: var(--secondary-color); }
-        .status-delivered { background-color: var(--success-color); }
-        .status-cancelled { background-color: var(--danger-color); }
-
-        .map-container {
-            height: 400px;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .loading {
-            display: none;
-        }
-
-        .loading.show {
-            display: block;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1050;
-            min-width: 300px;
-        }
-
-        .order-item {
-            border-left: 4px solid var(--primary-color);
-            padding: 15px;
-            margin-bottom: 10px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .real-time-indicator {
-            width: 10px;
-            height: 10px;
-            background-color: var(--success-color);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-weight: 500;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js" defer></script>
+    <link rel="stylesheet" href="css/admin.css">
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));">
+<body class="admin-shell">
+    <nav class="navbar navbar-expand-lg admin-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-utensils me-2"></i>
-                Food Delivery Admin
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <span class="brand-mark d-inline-flex align-items-center justify-content-center">
+                    <i class="fas fa-shipping-fast"></i>
+                </span>
+                <span class="brand-text">
+                    <span class="brand-title">Lalamove Logistics</span>
+                    <span class="brand-subtitle">Admin Control Center</span>
+                </span>
             </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text text-white me-3" id="demo-badge" style="display: none;">
-                    <span class="badge bg-warning text-dark">
-                        <i class="fas fa-flask me-1"></i>DEMO MODE
+            <div class="d-flex align-items-center ms-auto gap-3">
+                <span class="navbar-text" id="demo-badge" style="display: none;">
+                    <span class="badge demo-badge">
+                        <i class="fas fa-flask me-1"></i>Demo Mode
                     </span>
                 </span>
                 <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-user-circle me-1"></i>
+                    <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown">
+                        <span class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </span>
                         <span id="user-name">Admin</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
+                        <li>
+                            <button class="dropdown-item" type="button" onclick="logout()">
+                                <i class="fas fa-sign-out-alt me-2"></i>Đăng xuất
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0">
-                <div class="sidebar">
-                    <div class="p-3">
-                        <h5 class="text-white mb-3">Menu</h5>
-                        <nav class="nav flex-column">
-                            <a class="nav-link active" href="#" onclick="showDashboard()">
-                                <i class="fas fa-tachometer-alt me-2"></i>
-                                Dashboard
-                            </a>
-                            <a class="nav-link" href="#" onclick="showOrders()">
-                                <i class="fas fa-shopping-cart me-2"></i>
-                                Đơn hàng
-                            </a>
-                            <a class="nav-link" href="#" onclick="showTracking()">
-                                <i class="fas fa-map-marker-alt me-2"></i>
-                                Theo dõi giao hàng
-                            </a>
-                            <a class="nav-link" href="#" onclick="showUsers()">
-                                <i class="fas fa-users me-2"></i>
-                                Người dùng
-                            </a>
-                            <a class="nav-link" href="#" onclick="showAnalytics()">
-                                <i class="fas fa-chart-bar me-2"></i>
-                                Thống kê
-                            </a>
-                        </nav>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-inner">
+                <div class="sidebar-heading">
+                    <h6>Điều hướng</h6>
+                    <p>Tổng quan & tác vụ vận hành</p>
+                </div>
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="#" onclick="showDashboard()">
+                        <i class="fas fa-gauge-high"></i>
+                        Dashboard
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showOrders()">
+                        <i class="fas fa-clipboard-list"></i>
+                        Đơn hàng
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showTracking()">
+                        <i class="fas fa-route"></i>
+                        Theo dõi giao hàng
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showShippers()">
+                        <i class="fas fa-motorcycle"></i>
+                        Shipper
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showUsers()">
+                        <i class="fas fa-users"></i>
+                        Người dùng
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showAnalytics()">
+                        <i class="fas fa-chart-line"></i>
+                        Thống kê
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <section id="dashboard-section" class="section-block">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Tổng quan vận hành</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-gauge-high me-2"></i>
+                            Dashboard
+                        </h1>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="real-time-indicator"></span>
+                        <span>Dữ liệu realtime</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
-                <div class="main-content">
-                    <!-- Dashboard Section -->
-                    <div id="dashboard-section">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
-                            <div>
-                                <span class="real-time-indicator"></span>
-                                <small class="text-muted">Dữ liệu realtime</small>
-                            </div>
-                        </div>
-
-                        <!-- Statistics Cards -->
-                        <div class="row mb-4">
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Tổng đơn hàng</h6>
-                                                <h3 class="text-white" id="total-orders">0</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-shopping-cart fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card success">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Đã giao</h6>
-                                                <h3 class="text-white" id="delivered-orders">0</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-check-circle fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card warning">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Đang xử lý</h6>
-                                                <h3 class="text-white" id="processing-orders">0</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-clock fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card danger">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Tổng doanh thu</h6>
-                                                <h3 class="text-white" id="total-revenue">0đ</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-dollar-sign fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Charts -->
-                        <div class="row mb-4">
-                            <div class="col-md-8">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Thống kê đơn hàng theo ngày</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="ordersChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Trạng thái đơn hàng</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="statusChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Orders -->
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="card-title mb-0">Đơn hàng gần đây</h5>
-                                <button class="btn btn-primary btn-sm" onclick="showOrders()">
-                                    Xem tất cả
-                                </button>
-                            </div>
+                <div class="row g-4">
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card">
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Mã đơn</th>
-                                                <th>Nhà hàng</th>
-                                                <th>Khách hàng</th>
-                                                <th>Tổng tiền</th>
-                                                <th>Trạng thái</th>
-                                                <th>Thời gian</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="recent-orders-table">
-                                            <!-- Data will be loaded here -->
-                                        </tbody>
-                                    </table>
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tổng đơn hàng</p>
+                                    <h3 class="stat-card__value" id="total-orders">0</h3>
+                                    <span class="stat-card__meta">Tất cả tuyến giao trong ngày</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Orders Section -->
-                    <div id="orders-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-shopping-cart me-2"></i>Quản lý đơn hàng</h2>
-                            <div class="d-flex gap-2">
-                                <select class="form-select" id="status-filter" onchange="filterOrders()">
-                                    <option value="">Tất cả trạng thái</option>
-                                    <option value="pending">Chờ xử lý</option>
-                                    <option value="processing">Đang xử lý</option>
-                                    <option value="shipped">Đang giao</option>
-                                    <option value="delivered">Đã giao</option>
-                                    <option value="cancelled">Đã hủy</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="refreshOrders()">
-                                    <i class="fas fa-sync-alt me-1"></i>Làm mới
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="card">
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card stat-card--success">
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Mã đơn</th>
-                                                <th>Nhà hàng</th>
-                                                <th>Khách hàng</th>
-                                                <th>Sản phẩm</th>
-                                                <th>Tổng tiền</th>
-                                                <th>Trạng thái</th>
-                                                <th>Thời gian</th>
-                                                <th>Hành động</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="orders-table">
-                                            <!-- Data will be loaded here -->
-                                        </tbody>
-                                    </table>
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Đã giao</p>
+                                    <h3 class="stat-card__value" id="delivered-orders">0</h3>
+                                    <span class="stat-card__meta">Hoàn tất thành công</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Tracking Section -->
-                    <div id="tracking-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-map-marker-alt me-2"></i>Theo dõi giao hàng</h2>
-                            <div>
-                                <span class="real-time-indicator"></span>
-                                <small class="text-muted">Cập nhật realtime</small>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-8">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Bản đồ theo dõi</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="map" class="map-container">
-                                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                                                <div class="text-center">
-                                                    <i class="fas fa-map fa-3x mb-3"></i>
-                                                    <p>Bản đồ sẽ hiển thị khi có đơn hàng đang giao</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Đơn hàng đang giao</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="active-deliveries">
-                                            <!-- Active deliveries will be loaded here -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Users Section -->
-                    <div id="users-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-users me-2"></i>Quản lý người dùng</h2>
-                            <button class="btn btn-primary" onclick="refreshUsers()">
-                                <i class="fas fa-sync-alt me-1"></i>Làm mới
-                            </button>
-                        </div>
-
-                        <div class="card">
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card stat-card--warning">
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>ID</th>
-                                                <th>Tên</th>
-                                                <th>Email</th>
-                                                <th>Số điện thoại</th>
-                                                <th>Địa chỉ</th>
-                                                <th>Ngày tạo</th>
-                                                <th>Hành động</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="users-table">
-                                            <!-- Data will be loaded here -->
-                                        </tbody>
-                                    </table>
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-spinner"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Đang xử lý</p>
+                                    <h3 class="stat-card__value" id="processing-orders">0</h3>
+                                    <span class="stat-card__meta">Chờ điều phối hoặc đang giao</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Analytics Section -->
-                    <div id="analytics-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-chart-bar me-2"></i>Thống kê chi tiết</h2>
-                            <div class="d-flex gap-2">
-                                <select class="form-select" id="analytics-period">
-                                    <option value="7">7 ngày qua</option>
-                                    <option value="30">30 ngày qua</option>
-                                    <option value="90">90 ngày qua</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="loadAnalytics()">
-                                    <i class="fas fa-sync-alt me-1"></i>Tải lại
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Doanh thu theo ngày</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="revenueChart"></canvas>
-                                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card stat-card--brand">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-coins"></i>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Top nhà hàng</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="restaurantsChart"></canvas>
-                                    </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tổng doanh thu</p>
+                                    <h3 class="stat-card__value" id="total-revenue">0đ</h3>
+                                    <span class="stat-card__meta">Bao gồm phí giao nhận</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <div class="row g-4 mt-1">
+                    <div class="col-lg-8">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Thống kê đơn hàng theo ngày</h5>
+                                <span class="card-subtitle">7 ngày gần nhất</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="ordersChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Trạng thái đơn hàng</h5>
+                                <span class="card-subtitle">Cập nhật realtime</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statusChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header card-header--tight d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div>
+                            <h5 class="card-title mb-0">Đơn hàng gần đây</h5>
+                            <span class="card-subtitle">Theo dõi các đơn mới nhất</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm px-3" onclick="showOrders()">
+                            Xem tất cả
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mã đơn</th>
+                                        <th>Nhà hàng</th>
+                                        <th>Khách hàng</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thời gian</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-orders-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="orders-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Điều phối vận hành</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            Quản lý đơn hàng
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filter-group">
+                            <label for="status-filter" class="form-label mb-0">Trạng thái</label>
+                            <select class="form-select" id="status-filter" onchange="filterOrders()">
+                                <option value="">Tất cả</option>
+                                <option value="pending">Chờ xử lý</option>
+                                <option value="processing">Đang xử lý</option>
+                                <option value="shipped">Đang giao</option>
+                                <option value="delivered">Đã giao</option>
+                                <option value="cancelled">Đã hủy</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="refreshOrders()">
+                            <i class="fas fa-sync-alt me-2"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mã đơn</th>
+                                        <th>Nhà hàng</th>
+                                        <th>Khách hàng</th>
+                                        <th>Sản phẩm</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thời gian</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tracking-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Theo dõi trực tuyến</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-route me-2"></i>
+                            Theo dõi giao hàng
+                        </h1>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="real-time-indicator"></span>
+                        <span>Cập nhật realtime</span>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-xl-8">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Bản đồ theo dõi</h5>
+                                <span class="card-subtitle">Hiển thị khi có đơn đang giao</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="map" class="map-container">
+                                    <div class="map-placeholder">
+                                        <i class="fas fa-map-marked-alt"></i>
+                                        <p>Bản đồ sẽ hiển thị khi có đơn hàng đang giao</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Đơn hàng đang giao</h5>
+                                <span class="card-subtitle">Danh sách realtime</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="active-deliveries" class="active-deliveries"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="shippers-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Trung tâm đối tác</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-motorcycle me-2"></i>
+                            Quản lý shipper
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filter-group">
+                            <label for="shipper-status-filter" class="form-label mb-0">Trạng thái</label>
+                            <select class="form-select" id="shipper-status-filter" onchange="loadShippers()">
+                                <option value="">Tất cả</option>
+                                <option value="pending">Chờ duyệt</option>
+                                <option value="approved">Đã duyệt</option>
+                                <option value="rejected">Từ chối</option>
+                                <option value="suspended">Tạm khóa</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="refreshShippers()">
+                            <i class="fas fa-sync-alt me-2"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Họ tên</th>
+                                        <th>Email</th>
+                                        <th>SĐT</th>
+                                        <th>Loại xe</th>
+                                        <th>Biển số</th>
+                                        <th>Trạng thái</th>
+                                        <th>Ngày đăng ký</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shippers-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="users-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Khách hàng doanh nghiệp & cá nhân</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-users me-2"></i>
+                            Quản lý người dùng
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn btn-primary" onclick="refreshUsers()">
+                            <i class="fas fa-sync-alt me-2"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tên</th>
+                                        <th>Email</th>
+                                        <th>Số điện thoại</th>
+                                        <th>Địa chỉ</th>
+                                        <th>Ngày tạo</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analytics-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Phân tích hiệu suất</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Thống kê chi tiết
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filter-group">
+                            <label for="analytics-period" class="form-label mb-0">Chu kỳ</label>
+                            <select class="form-select" id="analytics-period">
+                                <option value="7">7 ngày qua</option>
+                                <option value="30">30 ngày qua</option>
+                                <option value="90">90 ngày qua</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="loadAnalytics()">
+                            <i class="fas fa-sync-alt me-2"></i>Tải lại
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Doanh thu theo ngày</h5>
+                                <span class="card-subtitle">Theo chu kỳ đã chọn</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="revenueChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Top nhà hàng</h5>
+                                <span class="card-subtitle">Theo số đơn hàng</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="restaurantsChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <!-- Loading Modal -->
     <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-body text-center">
+                <div class="modal-body text-center py-5">
                     <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mb-0">Đang tải dữ liệu...</p>
+                    <p class="mb-0 fw-medium text-secondary">Đang tải dữ liệu...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Order Details Modal -->
+    <div class="modal fade" id="shipperModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Chi tiết shipper</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="shipper-details"></div>
+                <div class="modal-footer flex-wrap gap-3 justify-content-between">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-success" onclick="updateShipperStatusFromModal('approved')">
+                            <i class="fas fa-check me-2"></i>Duyệt
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="updateShipperStatusFromModal('suspended')">
+                            <i class="fas fa-ban me-2"></i>Tạm khóa
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="updateShipperStatusFromModal('rejected')">
+                            <i class="fas fa-times me-2"></i>Từ chối
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="orderModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -550,9 +503,7 @@
                     <h5 class="modal-title">Chi tiết đơn hàng</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="order-details">
-                    <!-- Order details will be loaded here -->
-                </div>
+                <div class="modal-body" id="order-details"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                     <button type="button" class="btn btn-primary" onclick="updateOrderStatus()">Cập nhật trạng thái</button>
@@ -561,10 +512,7 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JavaScript -->
-    <script src="js/admin.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="js/admin.js" defer></script>
 </body>
 </html>

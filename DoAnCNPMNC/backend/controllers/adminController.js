@@ -1,4 +1,6 @@
+const Joi = require('joi');
 const { pool } = require('../config/database');
+const { sendNotificationToUser } = require('./notificationController');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
@@ -76,7 +78,7 @@ const getDashboardStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting dashboard stats:', error);
+    console.error('Error getting dashboard stats:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải thống kê dashboard',
@@ -103,7 +105,7 @@ const getAllOrders = async (req, res) => {
         o.status,
         o.created_at,
         o.updated_at,
-        u.name as customer_name,
+        u.full_name as customer_name,
         u.email as customer_email,
         u.phone as customer_phone
       FROM orders o
@@ -117,7 +119,9 @@ const getAllOrders = async (req, res) => {
     }
 
     query += ' ORDER BY o.created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
-    params.push(limit, offset);
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    params.push(parsedLimit, parsedOffset);
 
     const result = await pool.query(query, params);
 
@@ -141,7 +145,7 @@ const getAllOrders = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting orders:', error);
+    console.error('Error getting orders:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách đơn hàng',
@@ -158,7 +162,7 @@ const getOrderById = async (req, res) => {
     const result = await pool.query(
       `SELECT 
         o.*,
-        u.name as customer_name,
+        u.full_name as customer_name,
         u.email as customer_email,
         u.phone as customer_phone,
         u.address as customer_address
@@ -191,7 +195,7 @@ const getOrderById = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting order:', error);
+    console.error('Error getting order:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải thông tin đơn hàng',
@@ -245,7 +249,7 @@ const updateOrderStatus = async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    console.error('Error updating order status:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi cập nhật trạng thái đơn hàng',
@@ -265,10 +269,10 @@ const getActiveDeliveries = async (req, res) => {
         o.delivery_address,
         o.status,
         o.created_at,
-        u.name as customer_name,
+        u.full_name as customer_name,
         u.phone as customer_phone,
-        dt.current_latitude,
-        dt.current_longitude,
+        dt.latitude,
+        dt.longitude,
         dt.updated_at as last_location_update
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
@@ -286,7 +290,7 @@ const getActiveDeliveries = async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    console.error('Error getting active deliveries:', error);
+    console.error('Error getting active deliveries:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách giao hàng',
@@ -303,12 +307,14 @@ const getAllUsers = async (req, res) => {
     const result = await pool.query(
       `SELECT 
         id,
-        name,
+        COALESCE(full_name, '') AS name,
         email,
         phone,
         address,
         created_at,
-        updated_at
+        updated_at,
+        role,
+        status
       FROM users
       ORDER BY created_at DESC
       LIMIT $1 OFFSET $2`,
@@ -331,12 +337,228 @@ const getAllUsers = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting users:', error);
+    console.error('Error getting users:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách người dùng',
       error: error.message
     });
+  }
+};
+
+const getShippers = async (req, res) => {
+  try {
+    const { status, limit = 50, offset = 0 } = req.query;
+    const params = ['shipper'];
+    let whereClause = 'WHERE u.role = $1';
+
+    if (status) {
+      params.push(status);
+      whereClause += ` AND u.status = $${params.length}`;
+    }
+
+    params.push(limit, offset);
+
+    const result = await pool.query(
+      `SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.address,
+        u.status,
+        u.created_at,
+        sp.vehicle_type,
+        sp.vehicle_plate,
+        sp.driver_license_number,
+        sp.identity_card_number,
+        sp.notes,
+        sp.approved_at,
+        sp.created_at AS profile_created_at,
+        sp.updated_at AS profile_updated_at
+      FROM users u
+      LEFT JOIN shipper_profiles sp ON sp.user_id = u.id
+      ${whereClause}
+      ORDER BY u.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({
+      status: 'success',
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error getting shippers:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải danh sách shipper',
+      error: error.message
+    });
+  }
+};
+
+const getShipperById = async (req, res) => {
+  try {
+    const { shipperId } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.address,
+        u.status,
+        u.created_at,
+        sp.vehicle_type,
+        sp.vehicle_plate,
+        sp.driver_license_number,
+        sp.identity_card_number,
+        sp.notes,
+        sp.approved_at,
+        sp.created_at AS profile_created_at,
+        sp.updated_at AS profile_updated_at
+      FROM users u
+      LEFT JOIN shipper_profiles sp ON sp.user_id = u.id
+      WHERE u.id = $1 AND u.role = 'shipper'`,
+      [shipperId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy shipper'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error getting shipper details:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải thông tin shipper',
+      error: error.message
+    });
+  }
+};
+
+const updateShipperStatus = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { shipperId } = req.params;
+    const schema = Joi.object({
+      status: Joi.string().valid('pending', 'approved', 'rejected', 'suspended').required(),
+      notes: Joi.string().allow('', null)
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const userResult = await client.query(
+      `UPDATE users
+       SET status = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND role = 'shipper'
+       RETURNING id, full_name, email, status`,
+      [value.status, shipperId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy shipper'
+      });
+    }
+
+    const profileResult = await client.query(
+      `UPDATE shipper_profiles
+       SET notes = COALESCE($1, notes),
+           approved_at = CASE WHEN $2 = 'approved' THEN CURRENT_TIMESTAMP ELSE approved_at END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $3
+       RETURNING id`,
+      [value.notes || null, value.status, shipperId]
+    );
+
+    if (profileResult.rowCount === 0) {
+      await client.query(
+        `INSERT INTO shipper_profiles (
+          user_id, notes, approved_at
+        ) VALUES ($1, $2, CASE WHEN $3 = 'approved' THEN CURRENT_TIMESTAMP ELSE NULL END)
+        ON CONFLICT (user_id) DO UPDATE SET
+          notes = EXCLUDED.notes,
+          approved_at = CASE WHEN $3 = 'approved' THEN CURRENT_TIMESTAMP ELSE shipper_profiles.approved_at END,
+          updated_at = CURRENT_TIMESTAMP`,
+        [shipperId, value.notes || null, value.status]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const shipper = userResult.rows[0];
+
+    let notification = null;
+    switch (value.status) {
+      case 'approved':
+        notification = {
+          title: 'Tài khoản shipper đã được duyệt',
+          body: 'Chúc mừng! Bạn đã có thể đăng nhập và sử dụng ứng dụng shipper.'
+        };
+        break;
+      case 'rejected':
+        notification = {
+          title: 'Tài khoản shipper bị từ chối',
+          body: 'Hồ sơ của bạn chưa được chấp thuận. Vui lòng liên hệ quản trị viên để biết thêm chi tiết.'
+        };
+        break;
+      case 'suspended':
+        notification = {
+          title: 'Tài khoản shipper bị tạm khóa',
+          body: 'Tài khoản shipper của bạn đang bị tạm khóa. Vui lòng liên hệ quản trị viên.'
+        };
+        break;
+      default:
+        break;
+    }
+
+    if (notification) {
+      sendNotificationToUser(
+        shipper.id,
+        notification.title,
+        notification.body,
+        'shipper_status',
+        shipper.id,
+        { status: value.status }
+      ).catch(err => console.error('Notification error:', err));
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Cập nhật trạng thái shipper thành công',
+      data: shipper
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating shipper status:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi cập nhật trạng thái shipper',
+      error: error.message
+    });
+  } finally {
+    client.release();
   }
 };
 
@@ -400,7 +622,7 @@ const getAnalytics = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting analytics:', error);
+    console.error('Error getting analytics:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải dữ liệu thống kê',
@@ -416,5 +638,8 @@ module.exports = {
   updateOrderStatus,
   getActiveDeliveries,
   getAllUsers,
-  getAnalytics
+  getAnalytics,
+  getShippers,
+  getShipperById,
+  updateShipperStatus
 };
