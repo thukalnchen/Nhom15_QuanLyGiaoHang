@@ -1,14 +1,26 @@
-<<<<<<< HEAD
-# Food Delivery System
+# QuanLyGiaoHang
+Đề án môn Công nghệ phần mềm nâng cao. App Quản Lý Giao Hàng.
 
-Hệ thống đặt hàng và theo dõi giao hàng thực phẩm với Flutter, Node.js và PostgreSQL.
+## TEAM DEVELOPMENT STRUCTURE
+
+| No. | Name | Account | Roles | Date Start | Date End |
+|-----|------|---------|-------|------------|----------|
+| 1 | Trần Trọng Khang | https://github.com/thukalnchen | Scrum Master | 11/9/2025 | 19/11/2025 |
+| 2 | Lê Quang Khải | https://github.com/QuangKhai117 | Product Owner | 11/9/2025 | 19/11/2025 |
+| 3 | Giản Duy Khanh | https://github.com/GianDuyKhanh | Dev | 11/9/2025 | 19/11/2025 |
+| 4 | Văn Ngọc Kha | https://github.com/kha004 | Dev | 11/9/2025 | 19/11/2025 |
 
 ## Cấu trúc dự án
 
 ```
 DoAnCNPMNC/
 ├── backend/                 # Backend API (Node.js + Express + PostgreSQL)
-├── app_user/               # Mobile App (Flutter)
+├── app_user/               # Mobile App - Customer (Flutter)
+├── app_intake/             # Mobile App - Intake Staff (Flutter)
+├── app_driver/             # Mobile App - Driver (Flutter)
+├── app_deliverer/          # Mobile App - Deliverer (Flutter)
+├── app_giaohang/           # Mobile App - Shipper (Flutter)
+├── lalamove_app/           # Unified Mobile App (Flutter)
 └── web_admin/              # Web Admin Panel (HTML + Bootstrap)
 ```
 
@@ -20,13 +32,18 @@ DoAnCNPMNC/
 - ✅ Theo dõi vị trí realtime với Socket.IO
 - ✅ Xác thực và phân quyền
 - ✅ Cơ sở dữ liệu PostgreSQL
+- ✅ Quản lý kho (Warehouse)
+- ✅ Quản lý khiếu nại (Complaints)
+- ✅ Thông báo (Notifications)
 
-### Mobile App (Flutter)
+### Mobile Apps (Flutter)
 - ✅ Đăng ký/Đăng nhập
 - ✅ Tạo đơn hàng
 - ✅ Xem danh sách và chi tiết đơn hàng
 - ✅ Theo dõi giao hàng
 - ✅ Quản lý hồ sơ cá nhân
+- ✅ Quét QR code (Intake Staff)
+- ✅ Phân loại đơn hàng (Intake Staff)
 
 ### Web Admin Panel
 - ✅ Dashboard với thống kê
@@ -44,22 +61,31 @@ cd backend
 npm install
 ```
 
-Tạo file `.env` từ `config.env`:
+**Tạo file cấu hình:**
+
+Tạo file `config.env` từ file mẫu `config.env.example`:
+
 ```bash
-cp config.env .env
+# Windows
+copy config.env.example config.env
+
+# Linux/Mac
+cp config.env.example config.env
 ```
 
-Cập nhật thông tin database trong `.env`:
-```
+Cập nhật thông tin database trong `config.env`:
+
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=food_delivery_db
 DB_USER=postgres
-DB_PASSWORD=your_password
-JWT_SECRET=your-super-secret-jwt-key
+DB_PASSWORD=your_password_here
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 ```
 
-Chạy backend:
+**Chạy backend:**
+
 ```bash
 npm run dev
 ```
@@ -69,6 +95,7 @@ Backend sẽ chạy tại: `http://localhost:3000`
 ### 2. Database Setup
 
 Tạo database PostgreSQL:
+
 ```sql
 CREATE DATABASE food_delivery_db;
 ```
@@ -77,19 +104,37 @@ Backend sẽ tự động tạo các bảng khi khởi động lần đầu.
 
 ### 3. Mobile App Setup
 
+Chọn một trong các app để chạy:
+
+#### Option 1: Unified App (lalamove_app)
 ```bash
+cd lalamove_app
+flutter pub get
+flutter run
+```
+
+#### Option 2: Individual Apps
+```bash
+# Customer App
 cd app_user
 flutter pub get
+flutter run
+
+# Intake Staff App
+cd app_intake
+flutter pub get
+flutter run
+
+# Driver App
+cd app_driver
+flutter pub get
+flutter run
 ```
 
-Cập nhật API URL trong `lib/utils/constants.dart` nếu cần:
+**Cập nhật API URL** trong `lib/utils/constants.dart` nếu cần:
+
 ```dart
 static const String apiBaseUrl = 'http://your-backend-url:3000/api';
-```
-
-Chạy app:
-```bash
-flutter run
 ```
 
 ### 4. Web Admin Setup
@@ -97,6 +142,7 @@ flutter run
 Mở file `web_admin/index.html` trong trình duyệt hoặc sử dụng live server.
 
 Cập nhật API URL trong `js/admin.js` nếu cần:
+
 ```javascript
 this.apiBaseUrl = 'http://your-backend-url:3000/api';
 ```
@@ -186,17 +232,27 @@ this.apiBaseUrl = 'http://your-backend-url:3000/api';
 
 ### Lỗi kết nối database
 - Kiểm tra PostgreSQL đang chạy
-- Kiểm tra thông tin kết nối trong `.env`
+- Kiểm tra thông tin kết nối trong `config.env`
 - Đảm bảo database đã được tạo
 
 ### Lỗi CORS
-- Kiểm tra CORS_ORIGIN trong `.env`
+- Kiểm tra CORS_ORIGIN trong `config.env`
 - Thêm domain của bạn vào danh sách allowed origins
 
 ### Lỗi Flutter
 - Chạy `flutter clean` và `flutter pub get`
 - Kiểm tra API URL trong constants.dart
 - Đảm bảo backend đang chạy
+
+### File cấu hình bị thiếu
+- Đảm bảo đã tạo file `backend/config.env` từ `backend/config.env.example`
+- Kiểm tra các file `.local.properties` không được commit (đúng như mong muốn)
+
+## Lưu ý quan trọng
+
+⚠️ **File cấu hình:** File `backend/config.env` chứa thông tin nhạy cảm và không được commit vào git. Hãy tạo file này từ `backend/config.env.example` sau khi clone repository.
+
+⚠️ **File local:** Các file như `local.properties` và `.vscode/settings.json` chứa đường dẫn local và không nên được commit. Chúng đã được thêm vào `.gitignore`.
 
 ## Liên hệ
 
@@ -205,16 +261,3 @@ Nếu có vấn đề hoặc câu hỏi, vui lòng tạo issue trong repository.
 ## License
 
 MIT License
-=======
-# QuanLyGiaoHang
-Đề án môn Công nghệ phần mềm nâng cao. App Quản Lý Giao Hàng.
-TEAM DEVELOPMENT STRUCTURE					
-					
-No.	Name	Account	Roles	DateStart	Date End
-1	Trần Trọng Khang	https://github.com/thukalnchen	Srum Master	11/9/2025	19/11/2025
-2	Lê Quang Khải	https://github.com/QuangKhai117	Product Owner	11/9/2025	19/11/2025
-3	Giản Duy Khanh	https://github.com/GianDuyKhanh	Dev	11/9/2025	19/11/2025
-4	Văn Ngọc Kha	https://github.com/kha004	Dev	11/9/2025	19/11/2025
-					
-<img width="657" height="137" alt="image" src="https://github.com/user-attachments/assets/fc5f0f77-9065-4cd0-a4d9-b4aeb2573352" />
->>>>>>> dca1af03799a9a8c3f70ad03a62fb056a9720b86
