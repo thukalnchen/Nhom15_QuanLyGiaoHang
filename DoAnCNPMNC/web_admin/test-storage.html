@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Storage</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔧 Test Storage Functionality</h1>
+        <p>Kiểm tra localStorage và sessionStorage có hoạt động không</p>
+        
+        <div id="results"></div>
+        
+        <button onclick="runTests()">▶️ Chạy Test</button>
+        <button onclick="clearTests()">🗑️ Xóa Kết Quả</button>
+    </div>
+
+    <script>
+        const SafeStorage = {
+            getItem(key, storage = 'local') {
+                try {
+                    const store = storage === 'local' ? localStorage : sessionStorage;
+                    return store.getItem(key);
+                } catch (e) {
+                    console.warn(`Storage access blocked for ${key}:`, e.message);
+                    return null;
+                }
+            },
+            setItem(key, value, storage = 'local') {
+                try {
+                    const store = storage === 'local' ? localStorage : sessionStorage;
+                    store.setItem(key, value);
+                    return true;
+                } catch (e) {
+                    console.warn(`Storage write blocked for ${key}:`, e.message);
+                    return false;
+                }
+            },
+            removeItem(key, storage = 'local') {
+                try {
+                    const store = storage === 'local' ? localStorage : sessionStorage;
+                    store.removeItem(key);
+                    return true;
+                } catch (e) {
+                    console.warn(`Storage remove blocked for ${key}:`, e.message);
+                    return false;
+                }
+            }
+        };
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        function clearTests() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function runTests() {
+            clearTests();
+            log('🚀 Bắt đầu kiểm tra...', 'info');
+            
+            // Test 1: localStorage availability
+            log('<br><strong>Test 1: localStorage trực tiếp</strong>', 'info');
+            try {
+                localStorage.setItem('test_direct', 'ok');
+                const value = localStorage.getItem('test_direct');
+                if (value === 'ok') {
+                    log('✅ localStorage hoạt động bình thường', 'success');
+                    localStorage.removeItem('test_direct');
+                } else {
+                    log('❌ localStorage không lưu được giá trị', 'error');
+                }
+            } catch (e) {
+                log(`❌ localStorage bị chặn: ${e.message}`, 'error');
+            }
+
+            // Test 2: sessionStorage availability
+            log('<br><strong>Test 2: sessionStorage trực tiếp</strong>', 'info');
+            try {
+                sessionStorage.setItem('test_direct', 'ok');
+                const value = sessionStorage.getItem('test_direct');
+                if (value === 'ok') {
+                    log('✅ sessionStorage hoạt động bình thường', 'success');
+                    sessionStorage.removeItem('test_direct');
+                } else {
+                    log('❌ sessionStorage không lưu được giá trị', 'error');
+                }
+            } catch (e) {
+                log(`❌ sessionStorage bị chặn: ${e.message}`, 'error');
+            }
+
+            // Test 3: SafeStorage with localStorage
+            log('<br><strong>Test 3: SafeStorage với localStorage</strong>', 'info');
+            const setResult = SafeStorage.setItem('test_safe', 'safe_ok', 'local');
+            if (setResult) {
+                const value = SafeStorage.getItem('test_safe', 'local');
+                if (value === 'safe_ok') {
+                    log('✅ SafeStorage localStorage hoạt động tốt', 'success');
+                    SafeStorage.removeItem('test_safe', 'local');
+                } else {
+                    log('❌ SafeStorage không đọc được giá trị', 'error');
+                }
+            } else {
+                log('❌ SafeStorage không ghi được localStorage', 'error');
+            }
+
+            // Test 4: SafeStorage with sessionStorage
+            log('<br><strong>Test 4: SafeStorage với sessionStorage</strong>', 'info');
+            const setResultSession = SafeStorage.setItem('test_safe', 'safe_ok', 'session');
+            if (setResultSession) {
+                const value = SafeStorage.getItem('test_safe', 'session');
+                if (value === 'safe_ok') {
+                    log('✅ SafeStorage sessionStorage hoạt động tốt', 'success');
+                    SafeStorage.removeItem('test_safe', 'session');
+                } else {
+                    log('❌ SafeStorage không đọc được giá trị', 'error');
+                }
+            } else {
+                log('❌ SafeStorage không ghi được sessionStorage', 'error');
+            }
+
+            // Test 5: Browser info
+            log('<br><strong>Test 5: Thông tin trình duyệt</strong>', 'info');
+            log(`🌐 User Agent: ${navigator.userAgent}`, 'info');
+            log(`📍 URL hiện tại: ${window.location.href}`, 'info');
+            log(`🔒 Protocol: ${window.location.protocol}`, 'info');
+            
+            if (window.location.protocol === 'file:') {
+                log('⚠️ CẢNH BÁO: Đang chạy từ file:// - localStorage có thể bị chặn!', 'error');
+                log('💡 Giải pháp: Sử dụng Live Server hoặc http-server', 'info');
+            } else {
+                log('✅ Đang chạy qua HTTP/HTTPS - An toàn cho localStorage', 'success');
+            }
+
+            log('<br>✨ <strong>Hoàn thành kiểm tra!</strong>', 'info');
+        }
+
+        // Auto run on load
+        window.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>
