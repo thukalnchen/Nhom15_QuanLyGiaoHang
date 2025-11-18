@@ -88,6 +88,11 @@
                         Thống kê
                         <span class="nav-link__indicator"></span>
                     </a>
+                    <a class="nav-link" href="#" onclick="showAreas()">
+                        <i class="fas fa-map-marked-alt"></i>
+                        Khu vực
+                        <span class="nav-link__indicator"></span>
+                    </a>
                 </nav>
             </div>
         </aside>
@@ -232,20 +237,37 @@
                         </h1>
                     </div>
                     <div class="section-actions">
-                        <div class="filter-group">
-                            <label for="status-filter" class="form-label mb-0">Trạng thái</label>
-                            <select class="form-select" id="status-filter" onchange="filterOrders()">
-                                <option value="">Tất cả</option>
-                                <option value="pending">Chờ xử lý</option>
-                                <option value="processing">Đang xử lý</option>
-                                <option value="shipped">Đang giao</option>
-                                <option value="delivered">Đã giao</option>
-                                <option value="cancelled">Đã hủy</option>
-                            </select>
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            <div class="filter-group">
+                                <label for="search-filter" class="form-label mb-0">Tìm kiếm</label>
+                                <input type="text" class="form-control" id="search-filter" placeholder="Mã đơn, tên, SĐT..." onkeyup="if(event.key==='Enter') filterOrders()">
+                            </div>
+                            <div class="filter-group">
+                                <label for="status-filter" class="form-label mb-0">Trạng thái</label>
+                                <select class="form-select" id="status-filter" onchange="filterOrders()">
+                                    <option value="">Tất cả</option>
+                                    <option value="pending">Chờ xử lý</option>
+                                    <option value="processing">Đang xử lý</option>
+                                    <option value="shipped">Đang giao</option>
+                                    <option value="delivered">Đã giao</option>
+                                    <option value="cancelled">Đã hủy</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="start-date-filter" class="form-label mb-0">Từ ngày</label>
+                                <input type="date" class="form-control" id="start-date-filter" onchange="filterOrders()">
+                            </div>
+                            <div class="filter-group">
+                                <label for="end-date-filter" class="form-label mb-0">Đến ngày</label>
+                                <input type="date" class="form-control" id="end-date-filter" onchange="filterOrders()">
+                            </div>
+                            <button class="btn btn-primary" onclick="refreshOrders()">
+                                <i class="fas fa-sync-alt me-2"></i>Làm mới
+                            </button>
+                            <button class="btn btn-success" onclick="showDispatchModal()">
+                                <i class="fas fa-truck me-2"></i>Điều phối
+                            </button>
                         </div>
-                        <button class="btn btn-primary" onclick="refreshOrders()">
-                            <i class="fas fa-sync-alt me-2"></i>Làm mới
-                        </button>
                     </div>
                 </div>
 
@@ -255,18 +277,25 @@
                             <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
+                                        <th>
+                                            <input type="checkbox" id="select-all-orders" onchange="toggleSelectAllOrders()">
+                                        </th>
                                         <th>Mã đơn</th>
                                         <th>Nhà hàng</th>
                                         <th>Khách hàng</th>
                                         <th>Sản phẩm</th>
                                         <th>Tổng tiền</th>
                                         <th>Trạng thái</th>
+                                        <th>Shipper</th>
                                         <th>Thời gian</th>
                                         <th class="text-center">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody id="orders-table"></tbody>
                             </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center" id="orders-pagination">
+                            <!-- Pagination will be inserted here -->
                         </div>
                     </div>
                 </div>
@@ -507,6 +536,123 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                     <button type="button" class="btn btn-primary" onclick="updateOrderStatus()">Cập nhật trạng thái</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editOrderModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Chỉnh sửa đơn hàng</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="edit-order-form">
+                    <!-- Form will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveOrderEdit()">Lưu thay đổi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="dispatchModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Điều phối đơn hàng</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Đã chọn <span id="selected-orders-count">0</span> đơn hàng</label>
+                        <div id="selected-orders-list" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                            <small class="text-muted">Chưa có đơn hàng nào được chọn</small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Chọn Shipper <span class="text-danger">*</span></label>
+                        <select class="form-select" id="dispatch-shipper-select">
+                            <option value="">-- Chọn shipper --</option>
+                        </select>
+                        <small class="text-muted">Danh sách shipper đang rảnh và đã được duyệt</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="assignSelectedOrders()">Gán đơn hàng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section id="areas-section" class="section-block" style="display: none;">
+        <div class="section-header">
+            <div>
+                <p class="section-eyebrow">Quản lý khu vực giao hàng</p>
+                <h1 class="section-title">
+                    <i class="fas fa-map-marked-alt me-2"></i>
+                    Quản lý khu vực
+                </h1>
+            </div>
+            <div class="section-actions">
+                <button class="btn btn-primary" onclick="showCreateAreaModal()">
+                    <i class="fas fa-plus me-2"></i>Thêm khu vực
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive table-scroll">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Mã khu vực</th>
+                                <th>Tên khu vực</th>
+                                <th>Mô tả</th>
+                                <th>Ngày tạo</th>
+                                <th class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="areas-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="modal fade" id="areaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="area-modal-title">Thêm khu vực</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="area-form">
+                        <input type="hidden" id="area-id">
+                        <div class="mb-3">
+                            <label class="form-label">Tên khu vực <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="area-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mã khu vực <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="area-code" required>
+                            <small class="text-muted">Mã duy nhất để nhận diện khu vực</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <textarea class="form-control" id="area-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveArea()">Lưu</button>
                 </div>
             </div>
         </div>

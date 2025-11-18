@@ -20,6 +20,7 @@ const driverAssignmentRoutes = require('./routes/driverAssignment');
 const routeManagementRoutes = require('./routes/routeManagement');
 const pricingPolicyRoutes = require('./routes/pricingPolicy');
 const reportingRoutes = require('./routes/reporting');
+const areaRoutes = require('./routes/areas');
 const { connectDB } = require('./config/database');
 const { authenticateToken } = require('./middleware/auth');
 
@@ -100,6 +101,7 @@ app.use('/api/driver-assignment', authenticateToken, driverAssignmentRoutes);
 app.use('/api/routes', authenticateToken, routeManagementRoutes);
 app.use('/api/pricing', authenticateToken, pricingPolicyRoutes);
 app.use('/api/reports', authenticateToken, reportingRoutes);
+app.use('/api/admin/areas', areaRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

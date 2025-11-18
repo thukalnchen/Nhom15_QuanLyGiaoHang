@@ -74,6 +74,18 @@ const createTables = async () => {
       END $$;
     `);
 
+    // Delivery areas table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS delivery_areas (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        code VARCHAR(50) UNIQUE NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Orders table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS orders (
