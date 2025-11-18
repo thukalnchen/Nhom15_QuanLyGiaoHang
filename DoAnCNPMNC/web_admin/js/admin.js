@@ -224,7 +224,7 @@ function showAnalytics() {
 }
 
 function hideAllSections() {
-    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section'];
+    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section', 'areas-section'];
     sections.forEach(section => {
         const element = document.getElementById(section);
         if (element) {
@@ -242,6 +242,13 @@ function setActiveMenu(index) {
             link.classList.remove('active');
         }
     });
+}
+
+function showAreas() {
+    hideAllSections();
+    document.getElementById('areas-section').style.display = 'block';
+    setActiveMenu(6);
+    loadAreas();
 }
 
 // Dashboard functions
@@ -337,24 +344,45 @@ function displayRecentOrders(orders) {
 }
 
 // Orders functions
+let selectedOrderIds = new Set();
+let currentPage = 1;
+let totalPages = 1;
+
 async function loadOrders(options = {}) {
-    const { silent = false } = options;
+    const { silent = false, page = 1 } = options;
     try {
         if (!silent) {
             showLoading();
         }
 
-        const statusFilter = document.getElementById('status-filter').value;
-        let endpoint = '/admin/orders?limit=50';
+        const statusFilter = document.getElementById('status-filter')?.value || '';
+        const searchFilter = document.getElementById('search-filter')?.value || '';
+        const startDate = document.getElementById('start-date-filter')?.value || '';
+        const endDate = document.getElementById('end-date-filter')?.value || '';
+        
+        let endpoint = '/admin/orders?limit=50&offset=' + ((page - 1) * 50);
         
         if (statusFilter) {
             endpoint += `&status=${statusFilter}`;
+        }
+        if (searchFilter) {
+            endpoint += `&search=${encodeURIComponent(searchFilter)}`;
+        }
+        if (startDate) {
+            endpoint += `&startDate=${startDate}`;
+        }
+        if (endDate) {
+            endpoint += `&endDate=${endDate}`;
         }
         
         const response = await apiCall(endpoint);
         
         if (response.status === 'success') {
             displayOrders(response.data?.orders || []);
+            const pagination = response.data?.pagination || {};
+            totalPages = pagination.pages || 1;
+            currentPage = page;
+            displayPagination(pagination);
         } else if (!silent) {
             showNotification(response.message || 'Không thể tải danh sách đơn hàng', 'error');
         }
@@ -377,7 +405,7 @@ function displayOrders(orders) {
     tbody.innerHTML = '';
     
     if (orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Không có đơn hàng nào</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">Không có đơn hàng nào</td></tr>';
         return;
     }
     
@@ -396,11 +424,15 @@ function displayOrders(orders) {
             items = Object.values(order.items);
         }
         const itemsText = items.map(item => `${item.name} x${item.quantity}`).join(', ');
+        const isSelected = selectedOrderIds.has(order.id);
         
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td>
+                <input type="checkbox" class="order-checkbox" value="${order.id}" ${isSelected ? 'checked' : ''} onchange="toggleOrderSelection(${order.id})">
+            </td>
             <td>${order.order_number}</td>
-            <td>${order.restaurant_name}</td>
+            <td>${order.restaurant_name || 'N/A'}</td>
             <td>
                 <div>${order.customer_name || 'N/A'}</div>
                 <small class="text-muted">${order.customer_email || ''}</small>
@@ -408,17 +440,93 @@ function displayOrders(orders) {
             <td>
                 <small>${itemsText.substring(0, 50)}${itemsText.length > 50 ? '...' : ''}</small>
             </td>
-            <td>${formatCurrency(parseFloat(order.total_amount) + parseFloat(order.delivery_fee))}</td>
+            <td>${formatCurrency(parseFloat(order.total_amount || 0) + parseFloat(order.delivery_fee || 0))}</td>
             <td><span class="badge status-${order.status}">${getStatusText(order.status)}</span></td>
+            <td>${order.shipper_name || '<span class="text-muted">Chưa gán</span>'}</td>
             <td>${formatDateTime(order.created_at)}</td>
             <td>
-                <button class="btn btn-sm btn-primary" onclick="showOrderDetails(${order.id})">
-                    <i class="fas fa-eye"></i>
-                </button>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-primary" onclick="showOrderDetails(${order.id})" title="Xem chi tiết">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-warning" onclick="showEditOrderModal(${order.id})" title="Chỉnh sửa">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(row);
     });
+}
+
+function displayPagination(pagination) {
+    const paginationEl = document.getElementById('orders-pagination');
+    if (!paginationEl) return;
+    
+    if (totalPages <= 1) {
+        paginationEl.innerHTML = `<small class="text-muted">Tổng: ${pagination.total || 0} đơn hàng</small>`;
+        return;
+    }
+    
+    let html = `<small class="text-muted">Tổng: ${pagination.total || 0} đơn hàng</small>`;
+    html += '<nav><ul class="pagination pagination-sm mb-0">';
+    
+    // Previous button
+    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadOrders({page: ${currentPage - 1}}); return false;">Trước</a>
+    </li>`;
+    
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="loadOrders({page: ${i}}); return false;">${i}</a>
+            </li>`;
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // Next button
+    html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadOrders({page: ${currentPage + 1}}); return false;">Sau</a>
+    </li>`;
+    
+    html += '</ul></nav>';
+    paginationEl.innerHTML = html;
+}
+
+function toggleOrderSelection(orderId) {
+    if (selectedOrderIds.has(orderId)) {
+        selectedOrderIds.delete(orderId);
+    } else {
+        selectedOrderIds.add(orderId);
+    }
+    updateSelectAllCheckbox();
+}
+
+function toggleSelectAllOrders() {
+    const checkbox = document.getElementById('select-all-orders');
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    
+    checkboxes.forEach(cb => {
+        const orderId = parseInt(cb.value);
+        if (checkbox.checked) {
+            selectedOrderIds.add(orderId);
+            cb.checked = true;
+        } else {
+            selectedOrderIds.delete(orderId);
+            cb.checked = false;
+        }
+    });
+}
+
+function updateSelectAllCheckbox() {
+    const checkbox = document.getElementById('select-all-orders');
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    if (checkbox && checkboxes.length > 0) {
+        checkbox.checked = checkboxes.length === selectedOrderIds.size && checkboxes.length > 0;
+    }
 }
 
 function filterOrders() {
@@ -1180,7 +1288,8 @@ async function refreshCurrentView() {
         'tracking-section': loadActiveDeliveries,
         'shippers-section': loadShippers,
         'users-section': loadUsers,
-        'analytics-section': loadAnalytics
+        'analytics-section': loadAnalytics,
+        'areas-section': loadAreas
     };
     
     try {
@@ -1404,6 +1513,318 @@ function generateMockRestaurants() {
         { restaurant_name: 'Highland Coffee', order_count: 28, total_revenue: 7000000 },
         { restaurant_name: 'Starbucks', order_count: 25, total_revenue: 8500000 }
     ];
+}
+
+// Dispatch functions
+async function showDispatchModal() {
+    if (selectedOrderIds.size === 0) {
+        showNotification('Vui lòng chọn ít nhất một đơn hàng để điều phối', 'warning');
+        return;
+    }
+    
+    try {
+        showLoading();
+        const response = await apiCall('/admin/shippers/available');
+        
+        if (response.status === 'success') {
+            const select = document.getElementById('dispatch-shipper-select');
+            select.innerHTML = '<option value="">-- Chọn shipper --</option>';
+            
+            response.data.forEach(shipper => {
+                const option = document.createElement('option');
+                option.value = shipper.id;
+                option.textContent = `${shipper.full_name} (${shipper.vehicle_type || 'N/A'}) - ${shipper.active_orders_count || 0} đơn đang giao`;
+                select.appendChild(option);
+            });
+            
+            updateSelectedOrdersList();
+            const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
+            modal.show();
+        }
+    } catch (error) {
+        showNotification('Không thể tải danh sách shipper', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function updateSelectedOrdersList() {
+    const countEl = document.getElementById('selected-orders-count');
+    const listEl = document.getElementById('selected-orders-list');
+    
+    if (countEl) countEl.textContent = selectedOrderIds.size;
+    
+    if (listEl) {
+        if (selectedOrderIds.size === 0) {
+            listEl.innerHTML = '<small class="text-muted">Chưa có đơn hàng nào được chọn</small>';
+        } else {
+            // You can enhance this to show order numbers
+            listEl.innerHTML = `<small>Đã chọn ${selectedOrderIds.size} đơn hàng</small>`;
+        }
+    }
+}
+
+async function assignSelectedOrders() {
+    const shipperId = document.getElementById('dispatch-shipper-select').value;
+    
+    if (!shipperId) {
+        showNotification('Vui lòng chọn shipper', 'warning');
+        return;
+    }
+    
+    if (selectedOrderIds.size === 0) {
+        showNotification('Vui lòng chọn ít nhất một đơn hàng', 'warning');
+        return;
+    }
+    
+    try {
+        showLoading();
+        const response = await apiCall('/admin/orders/assign', 'POST', {
+            order_ids: Array.from(selectedOrderIds),
+            shipper_id: parseInt(shipperId)
+        });
+        
+        if (response.status === 'success') {
+            showNotification(response.message || 'Gán đơn hàng thành công!', 'success');
+            selectedOrderIds.clear();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('dispatchModal'));
+            modal.hide();
+            loadOrders();
+        }
+    } catch (error) {
+        showNotification(error.message || 'Không thể gán đơn hàng', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Edit order functions
+async function showEditOrderModal(orderId) {
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/orders/${orderId}`);
+        
+        if (response.status === 'success') {
+            const order = response.data.order;
+            const formEl = document.getElementById('edit-order-form');
+            
+            formEl.innerHTML = `
+                <form id="edit-order-form-content">
+                    <input type="hidden" id="edit-order-id" value="${order.id}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tên nhà hàng</label>
+                            <input type="text" class="form-control" id="edit-restaurant-name" value="${order.restaurant_name || ''}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Địa chỉ giao hàng</label>
+                            <input type="text" class="form-control" id="edit-delivery-address" value="${order.delivery_address || ''}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Số điện thoại giao hàng</label>
+                            <input type="text" class="form-control" id="edit-delivery-phone" value="${order.delivery_phone || ''}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tên người nhận</label>
+                            <input type="text" class="form-control" id="edit-recipient-name" value="${order.recipient_name || ''}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Số điện thoại người nhận</label>
+                            <input type="text" class="form-control" id="edit-recipient-phone" value="${order.recipient_phone || ''}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tổng tiền</label>
+                            <input type="number" class="form-control" id="edit-total-amount" value="${order.total_amount || 0}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phí giao hàng</label>
+                            <input type="number" class="form-control" id="edit-delivery-fee" value="${order.delivery_fee || 0}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea class="form-control" id="edit-notes" rows="3">${order.notes || ''}</textarea>
+                    </div>
+                </form>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('editOrderModal'));
+            modal.show();
+        }
+    } catch (error) {
+        showNotification('Không thể tải thông tin đơn hàng', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function saveOrderEdit() {
+    const orderId = document.getElementById('edit-order-id').value;
+    const data = {
+        restaurant_name: document.getElementById('edit-restaurant-name').value,
+        delivery_address: document.getElementById('edit-delivery-address').value,
+        delivery_phone: document.getElementById('edit-delivery-phone').value,
+        recipient_name: document.getElementById('edit-recipient-name').value,
+        recipient_phone: document.getElementById('edit-recipient-phone').value,
+        total_amount: parseFloat(document.getElementById('edit-total-amount').value),
+        delivery_fee: parseFloat(document.getElementById('edit-delivery-fee').value),
+        notes: document.getElementById('edit-notes').value
+    };
+    
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/orders/${orderId}`, 'PATCH', data);
+        
+        if (response.status === 'success') {
+            showNotification('Cập nhật đơn hàng thành công!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editOrderModal'));
+            modal.hide();
+            loadOrders();
+        }
+    } catch (error) {
+        showNotification(error.message || 'Không thể cập nhật đơn hàng', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Areas management functions
+async function loadAreas() {
+    try {
+        showLoading();
+        const response = await apiCall('/admin/areas');
+        
+        if (response.status === 'success') {
+            displayAreas(response.data?.areas || []);
+        }
+    } catch (error) {
+        showNotification('Không thể tải danh sách khu vực', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayAreas(areas) {
+    const tbody = document.getElementById('areas-table');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (areas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Chưa có khu vực nào</td></tr>';
+        return;
+    }
+    
+    areas.forEach(area => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${area.code}</td>
+            <td>${area.name}</td>
+            <td>${area.description || '<span class="text-muted">Không có</span>'}</td>
+            <td>${formatDateTime(area.created_at)}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-warning" onclick="showEditAreaModal(${area.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteArea(${area.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function showCreateAreaModal() {
+    document.getElementById('area-modal-title').textContent = 'Thêm khu vực';
+    document.getElementById('area-id').value = '';
+    document.getElementById('area-name').value = '';
+    document.getElementById('area-code').value = '';
+    document.getElementById('area-description').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('areaModal'));
+    modal.show();
+}
+
+async function showEditAreaModal(areaId) {
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/areas/${areaId}`);
+        
+        if (response.status === 'success') {
+            const area = response.data;
+            document.getElementById('area-modal-title').textContent = 'Chỉnh sửa khu vực';
+            document.getElementById('area-id').value = area.id;
+            document.getElementById('area-name').value = area.name;
+            document.getElementById('area-code').value = area.code;
+            document.getElementById('area-description').value = area.description || '';
+            const modal = new bootstrap.Modal(document.getElementById('areaModal'));
+            modal.show();
+        }
+    } catch (error) {
+        showNotification('Không thể tải thông tin khu vực', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function saveArea() {
+    const id = document.getElementById('area-id').value;
+    const data = {
+        name: document.getElementById('area-name').value,
+        code: document.getElementById('area-code').value,
+        description: document.getElementById('area-description').value
+    };
+    
+    if (!data.name || !data.code) {
+        showNotification('Vui lòng điền đầy đủ thông tin', 'warning');
+        return;
+    }
+    
+    try {
+        showLoading();
+        const endpoint = id ? `/admin/areas/${id}` : '/admin/areas';
+        const method = id ? 'PUT' : 'POST';
+        const response = await apiCall(endpoint, method, data);
+        
+        if (response.status === 'success') {
+            showNotification(id ? 'Cập nhật khu vực thành công!' : 'Tạo khu vực thành công!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('areaModal'));
+            modal.hide();
+            loadAreas();
+        }
+    } catch (error) {
+        showNotification(error.message || 'Không thể lưu khu vực', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteArea(areaId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa khu vực này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/areas/${areaId}`, 'DELETE');
+        
+        if (response.status === 'success') {
+            showNotification('Xóa khu vực thành công!', 'success');
+            loadAreas();
+        }
+    } catch (error) {
+        showNotification(error.message || 'Không thể xóa khu vực', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // Auto-refresh at a configurable interval for real-time data
