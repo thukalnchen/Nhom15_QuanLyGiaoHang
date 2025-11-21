@@ -13,7 +13,9 @@ const {
   getShipperById,
   updateShipperStatus,
   getAvailableShippers,
-  assignOrders
+  assignOrders,
+  confirmCodCollection,
+  confirmCodReceived
 } = require('../controllers/adminController');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
@@ -44,5 +46,9 @@ router.patch('/shippers/:shipperId/status', updateShipperStatus);
 
 // Analytics
 router.get('/analytics', getAnalytics);
+
+// US-19 & US-12: COD Confirmation
+router.post('/payments/confirm-collection', confirmCodCollection);
+router.post('/payments/confirm-received', confirmCodReceived);
 
 module.exports = router;

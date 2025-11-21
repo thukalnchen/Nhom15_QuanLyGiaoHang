@@ -256,6 +256,16 @@ const getOrderDetails = async (req, res) => {
       [orderId]
     );
 
+    // US-17: Get latest shipper location check-in
+    const shipperLocationResult = await pool.query(
+      `SELECT latitude, longitude, created_at
+       FROM shipper_locations
+       WHERE order_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [orderId]
+    );
+
     const orderDetails = {
       id: order.id,
       order_number: order.order_number,
@@ -276,8 +286,14 @@ const getOrderDetails = async (req, res) => {
       status_history: historyResult.rows.map(history => ({
         status: history.status,
         notes: history.notes,
+        reason: history.reason,
         created_at: history.created_at
-      }))
+      })),
+      shipper_location: shipperLocationResult.rows.length > 0 ? {
+        latitude: parseFloat(shipperLocationResult.rows[0].latitude),
+        longitude: parseFloat(shipperLocationResult.rows[0].longitude),
+        created_at: shipperLocationResult.rows[0].created_at
+      } : null
     };
 
     res.json({
@@ -289,6 +305,78 @@ const getOrderDetails = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Internal server error'
+    });
+  }
+};
+
+// US-17: Get shipper location for customer tracking
+const getShipperLocation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify order belongs to customer
+    const orderResult = await pool.query(
+      'SELECT id FROM orders WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập'
+      });
+    }
+
+    // Get latest shipper location check-in
+    const locationResult = await pool.query(
+      `SELECT 
+        sl.id,
+        sl.latitude,
+        sl.longitude,
+        sl.address,
+        sl.created_at,
+        u.full_name as shipper_name,
+        u.phone as shipper_phone
+       FROM shipper_locations sl
+       LEFT JOIN users u ON u.id = sl.shipper_id
+       WHERE sl.order_id = $1
+       ORDER BY sl.created_at DESC
+       LIMIT 1`,
+      [id]
+    );
+
+    if (locationResult.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Shipper chưa check-in vị trí'
+      });
+    }
+
+    const location = locationResult.rows[0];
+
+    res.json({
+      status: 'success',
+      data: {
+        location: {
+          id: location.id,
+          latitude: parseFloat(location.latitude),
+          longitude: parseFloat(location.longitude),
+          address: location.address,
+          created_at: location.created_at,
+          shipper: location.shipper_name ? {
+            name: location.shipper_name,
+            phone: location.shipper_phone
+          } : null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getShipperLocation error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể lấy vị trí shipper',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -600,6 +688,7 @@ module.exports = {
   createOrder,
   getUserOrders,
   getOrderDetails,
+  getShipperLocation,
   updateOrderStatus,
   cancelOrder,
   getCancellationStats,

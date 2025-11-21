@@ -342,7 +342,7 @@ exports.collectCOD = async (req, res) => {
         cod_collected_at = NOW(),
         updated_at = NOW()
       WHERE id = $1 
-        AND is_cod = true 
+        AND (payment_method = 'cod' OR payment_method = 'COD')
         AND cod_payment_type = 'sender_pays'
         AND cod_collected_at_warehouse = false
       RETURNING *

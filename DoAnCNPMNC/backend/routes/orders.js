@@ -3,6 +3,7 @@ const {
   createOrder, 
   getUserOrders, 
   getOrderDetails, 
+  getShipperLocation,
   updateOrderStatus, 
   cancelOrder,
   getCancellationStats,
@@ -29,6 +30,9 @@ router.post('/', createOrder);
 
 // Get user's orders
 router.get('/', getUserOrders);
+
+// US-17: Get shipper location for customer tracking (must be before /:orderId)
+router.get('/:orderId/shipper-location', getShipperLocation);
 
 // Get order details
 router.get('/:orderId', getOrderDetails);

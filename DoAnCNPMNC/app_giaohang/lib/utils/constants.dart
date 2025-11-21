@@ -17,6 +17,7 @@ class ApiEndpoints {
   static const String registerShipper = '/auth/register/shipper';
   static const String shipperOrders = '/shippers/me/orders';
   static const String shipperOrderDetails = '/shippers/orders';
+  static const String shipperCheckIn = '/shippers/me/check-in';
 }
 
 class StorageKeys {

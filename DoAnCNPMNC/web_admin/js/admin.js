@@ -87,12 +87,93 @@ function displayUserInfo() {
 
 // Initialize Socket.IO for real-time updates
 function initializeSocketIO() {
+    // Close existing socket if any
+    if (socket && socket.connected) {
+        socket.disconnect();
+        socket = null;
+    }
+
     socket = io('http://localhost:3000', {
-        transports: ['websocket', 'polling']
+        // Use polling only for better stability (websocket seems unstable after upgrade)
+        transports: ['polling'],
+        // Reconnection settings with exponential backoff
+        reconnection: true,
+        reconnectionDelay: 1000, // Start with 1 second
+        reconnectionDelayMax: 10000, // Maximum 10 seconds between attempts
+        reconnectionAttempts: Infinity, // Try to reconnect forever
+        timeout: 60000, // Longer connection timeout (60 seconds)
+        // Keep alive settings
+        forceNew: false, // Reuse connection if possible
+        autoConnect: true,
+        // Disable upgrade to websocket (keep polling stable)
+        upgrade: false, // Don't auto-upgrade to websocket
+        // Compression (disable to reduce overhead)
+        perMessageDeflate: false,
+        // Additional stability settings
+        rememberUpgrade: false, // Don't remember upgrade preference
+        // Multiple connection handling
+        multiplex: false // Don't multiplex connections
     });
 
     socket.on('connect', () => {
-        console.log('Connected to Socket.IO server');
+        const transport = socket.io.engine.transport.name;
+        console.log(`[Socket.IO] Connected to server (transport: ${transport})`);
+        
+        // Clear any error notifications on successful connection
+        if (socket.reconnecting) {
+            console.log('[Socket.IO] Successfully reconnected to server');
+        }
+
+    // Monitor transport upgrades with error handling
+    socket.io.engine.on('upgrade', () => {
+        const newTransport = socket.io.engine.transport.name;
+        console.log(`[Socket.IO] Transport upgraded to: ${newTransport}`);
+    });
+
+    // Handle transport errors - will automatically fallback to polling
+    socket.io.engine.on('error', (error) => {
+        console.error(`[Socket.IO] Engine error:`, error.message || error);
+        // Connection will automatically try to reconnect with fallback transport
+    });
+
+    // Handle upgrade errors - will stay on polling
+    socket.io.engine.on('upgradeError', (error) => {
+        console.warn(`[Socket.IO] Upgrade error, staying on polling:`, error.message || error);
+    });
+    });
+
+    // Handle ping/pong for keep-alive - respond immediately
+    socket.on('ping', (data) => {
+        try {
+            socket.emit('pong', { timestamp: Date.now() });
+        } catch (error) {
+            console.error('[Socket.IO] Error sending pong:', error);
+        }
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('[Socket.IO] Connection error:', error.message || error);
+        // Don't show error notification on every connection attempt
+        // The reconnection will happen automatically with exponential backoff
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+        const delay = Math.min(1000 * Math.pow(2, attemptNumber - 1), 10000);
+        console.log(`[Socket.IO] Attempting to reconnect (attempt ${attemptNumber}, delay: ${delay}ms)...`);
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+        console.log(`[Socket.IO] Successfully reconnected after ${attemptNumber} attempts`);
+    });
+
+    socket.on('reconnect_error', (error) => {
+        console.error('[Socket.IO] Reconnection error:', error.message || error);
+    });
+
+    socket.on('reconnect_failed', () => {
+        console.error('[Socket.IO] Failed to reconnect to server after all attempts');
+        // Show error notification only after all reconnection attempts failed
+        showNotification('Mất kết nối với máy chủ. Vui lòng tải lại trang.', 'error');
     });
 
     socket.on('order-status-updated', (data) => {
@@ -108,8 +189,33 @@ function initializeSocketIO() {
         refreshCurrentView();
     });
 
-    socket.on('disconnect', () => {
-        console.log('Disconnected from Socket.IO server');
+    socket.on('disconnect', (reason) => {
+        const transport = socket.io?.engine?.transport?.name || 'unknown';
+        console.log(`[Socket.IO] Disconnected from server, reason: ${reason}, transport: ${transport}`);
+        
+        // Handle different disconnect reasons
+        if (reason === 'io server disconnect') {
+            // Server forcefully disconnected (e.g., kicked out)
+            console.log('[Socket.IO] Server disconnected client - reconnecting manually...');
+            socket.connect();
+        } else if (reason === 'transport close') {
+            // Transport closed (network issue, timeout, idle, etc.)
+            console.log('[Socket.IO] Transport closed - will attempt to reconnect automatically with fallback transport');
+            // Automatic reconnection will handle this - will try polling if websocket failed
+        } else if (reason === 'ping timeout') {
+            // Client didn't respond to ping in time
+            console.log('[Socket.IO] Ping timeout - will attempt to reconnect automatically');
+        } else if (reason === 'transport error') {
+            // Transport error occurred - will fallback to polling
+            console.log('[Socket.IO] Transport error - will attempt to reconnect with fallback transport (polling)');
+        } else {
+            console.log(`[Socket.IO] Disconnected: ${reason} - will attempt to reconnect automatically`);
+        }
+        // All reasons except 'io server disconnect' will trigger automatic reconnection
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket.IO error:', error);
     });
 }
 
@@ -141,14 +247,42 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
 
-        const rawText = await response.text();
+        // Check status code before parsing
+        const contentType = response.headers.get('content-type');
+        const isJson = contentType && contentType.includes('application/json');
+        
         let result = {};
+        
+        if (response.status === 429) {
+            // Rate limit error - try to parse JSON, fallback to text
+            const rawText = await response.text();
+            try {
+                result = JSON.parse(rawText);
+            } catch {
+                // Not JSON, use default message
+                result = {
+                    status: 'error',
+                    message: 'Too many requests. Please wait a moment and try again.',
+                    retryAfter: 60 // Default retry after 60 seconds
+                };
+            }
+            
+            const retryAfter = result.retryAfter || 60;
+            throw new Error(`${result.message || 'Quá nhiều yêu cầu. Vui lòng đợi '}${retryAfter} giây rồi thử lại.`);
+        }
+
+        const rawText = await response.text();
         if (rawText) {
             try {
                 result = JSON.parse(rawText);
             } catch (parseError) {
                 console.error('Không thể parse JSON từ API:', parseError);
-                throw new Error(result?.message || 'Dữ liệu trả về không hợp lệ');
+                console.error('Response text:', rawText.substring(0, 200));
+                // If not JSON and status is error, use response text as message
+                if (!response.ok) {
+                    throw new Error(rawText.length < 200 ? rawText : `Lỗi từ server: ${response.status} ${response.statusText}`);
+                }
+                throw new Error('Dữ liệu trả về không hợp lệ');
             }
         }
 
@@ -162,7 +296,7 @@ async function apiCall(endpoint, method = 'GET', data = null) {
                 window.location.href = 'login.html';
                 throw new Error('Session expired. Please login again.');
             }
-            throw new Error(result.message || `API request failed: ${response.status}`);
+            throw new Error(result.message || `API request failed: ${response.status} ${response.statusText}`);
         }
 
         return result;
@@ -171,7 +305,9 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         
         // Don't show error notification for auth redirect
         if (!suppressNotifications && !error.message.includes('Session expired')) {
-            showNotification(error.message || 'Lỗi kết nối API', 'error');
+            // For rate limit errors, show warning instead of error
+            const isRateLimit = error.message.includes('Quá nhiều yêu cầu') || error.message.includes('Too many');
+            showNotification(error.message || 'Lỗi kết nối API', isRateLimit ? 'warning' : 'error');
         }
         throw error;
     }
@@ -224,7 +360,7 @@ function showAnalytics() {
 }
 
 function hideAllSections() {
-    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section', 'areas-section'];
+    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section', 'areas-section', 'cod-section'];
     sections.forEach(section => {
         const element = document.getElementById(section);
         if (element) {
@@ -249,6 +385,30 @@ function showAreas() {
     document.getElementById('areas-section').style.display = 'block';
     setActiveMenu(6);
     loadAreas();
+}
+
+// US-19 & US-12: Show COD Reconciliation
+function showCodReconciliation() {
+    hideAllSections();
+    document.getElementById('cod-section').style.display = 'block';
+    setActiveMenu(7);
+    // Ensure loading is reset before loading COD orders
+    if (activeLoadingRequests > 0) {
+        activeLoadingRequests = 0;
+    }
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+    }
+    const modal = getLoadingModalInstance();
+    if (modal) {
+        try {
+            modal.hide();
+        } catch (e) {
+            // Ignore
+        }
+    }
+    loadCodOrders();
 }
 
 // Dashboard functions
@@ -442,7 +602,7 @@ function displayOrders(orders) {
             </td>
             <td>${formatCurrency(parseFloat(order.total_amount || 0) + parseFloat(order.delivery_fee || 0))}</td>
             <td><span class="badge status-${order.status}">${getStatusText(order.status)}</span></td>
-            <td>${order.shipper_name || '<span class="text-muted">Chưa gán</span>'}</td>
+            <td>${order.shipper?.full_name || '<span class="text-muted">Chưa gán</span>'}</td>
             <td>${formatDateTime(order.created_at)}</td>
             <td>
                 <div class="btn-group btn-group-sm">
@@ -1235,13 +1395,14 @@ function hideLoading() {
         activeLoadingRequests -= 1;
     }
 
-    if (activeLoadingRequests > 0) {
-        return;
-    }
-
     if (loadingTimeout) {
         clearTimeout(loadingTimeout);
         loadingTimeout = null;
+    }
+
+    // Only hide modal if no active requests
+    if (activeLoadingRequests > 0) {
+        return;
     }
 
     const modal = getLoadingModalInstance();
@@ -1249,12 +1410,21 @@ function hideLoading() {
         return;
     }
 
-    modal.hide();
+    try {
+        modal.hide();
+    } catch (e) {
+        console.warn('Error hiding loading modal:', e);
+    }
 
+    // Clean up backdrop
     setTimeout(() => {
         const backdrop = document.querySelector('.modal-backdrop');
         if (backdrop && !document.body.classList.contains('modal-open')) {
             backdrop.remove();
+        }
+        // Remove modal-open class if still present
+        if (document.body.classList.contains('modal-open')) {
+            document.body.classList.remove('modal-open');
         }
     }, 150);
 }
@@ -1825,6 +1995,270 @@ async function deleteArea(areaId) {
     } finally {
         hideLoading();
     }
+}
+
+// US-19 & US-12: COD Reconciliation Functions
+async function loadCodOrders() {
+    // Ensure loading is hidden first
+    while (activeLoadingRequests > 0) {
+        activeLoadingRequests = 0;
+    }
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+    }
+    const modal = getLoadingModalInstance();
+    if (modal) {
+        try {
+            modal.hide();
+        } catch (e) {
+            // Ignore
+        }
+    }
+    
+    try {
+        showLoading();
+        const filterStatus = document.getElementById('cod-filter-status')?.value || '';
+        
+        // Get all orders with COD
+        let endpoint = '/admin/orders?limit=1000';
+        
+        const response = await apiCall(endpoint);
+        console.log('COD Orders API Response:', response);
+        
+        if (response && response.status === 'success') {
+            let orders = response.data?.orders || [];
+            console.log('Total orders received:', orders.length);
+            
+            // Filter COD orders - only show orders that are actually COD
+            const allCodOrders = orders.filter(order => {
+                // Check if order has COD (payment_method = 'cod' or is_cod = true)
+                const paymentMethod = (order.payment_method || '').toLowerCase();
+                const hasCod = paymentMethod === 'cod' || 
+                              order.is_cod === true || 
+                              order.is_cod === 'true' ||
+                              (order.cod_amount && parseFloat(order.cod_amount) > 0);
+                
+                return hasCod;
+            });
+            
+            console.log('COD orders found:', allCodOrders.length);
+            
+            // Apply status filter
+            let filteredOrders = allCodOrders;
+            if (filterStatus === 'pending_collection') {
+                filteredOrders = allCodOrders.filter(order => !order.is_cod_collected);
+            } else if (filterStatus === 'collected') {
+                filteredOrders = allCodOrders.filter(order => order.is_cod_collected && !order.is_cod_received);
+            } else if (filterStatus === 'received') {
+                filteredOrders = allCodOrders.filter(order => order.is_cod_collected && order.is_cod_received);
+            }
+            
+            console.log('Filtered COD orders:', filteredOrders.length, 'with filter:', filterStatus);
+            
+            displayCodOrders(filteredOrders);
+            updateCodStats(allCodOrders);
+        } else {
+            console.error('Failed to load orders:', response);
+            if (response && response.message) {
+                showNotification(response.message || 'Không thể tải danh sách đơn COD', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('loadCodOrders error:', error);
+        showNotification('Không thể tải danh sách đơn COD: ' + (error.message || 'Lỗi không xác định'), 'error');
+    } finally {
+        // Force hide loading
+        hideLoading();
+        // Double check to ensure loading is hidden
+        setTimeout(() => {
+            if (activeLoadingRequests > 0) {
+                activeLoadingRequests = 0;
+            }
+            const modal = getLoadingModalInstance();
+            if (modal) {
+                try {
+                    modal.hide();
+                } catch (e) {
+                    // Ignore
+                }
+            }
+        }, 100);
+    }
+}
+
+function displayCodOrders(orders) {
+    const tbody = document.getElementById('cod-orders-table');
+    if (!tbody) {
+        console.error('COD orders table body not found!');
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Chưa có đơn hàng COD nào</td></tr>';
+        return;
+    }
+    
+    console.log('Displaying COD orders:', orders.length);
+    
+    orders.forEach(order => {
+        const row = document.createElement('tr');
+        const codAmount = parseFloat(order.cod_amount || order.total_amount || 0);
+        const isCollected = order.is_cod_collected === true || order.is_cod_collected === 'true';
+        const isReceived = order.is_cod_received === true || order.is_cod_received === 'true';
+        
+        const customerName = order.customer?.full_name || order.user?.full_name || 'N/A';
+        const shipperName = order.shipper?.full_name || 'Chưa gán';
+        const orderNumber = order.order_number || `#${order.id}`;
+        
+        row.innerHTML = `
+            <td><strong>${orderNumber}</strong></td>
+            <td>${customerName}</td>
+            <td>${shipperName}</td>
+            <td><strong>${formatCurrency(codAmount)}</strong></td>
+            <td>
+                ${isCollected 
+                    ? `<span class="badge bg-success"><i class="fas fa-check me-1"></i>Đã thu</span><br><small class="text-muted">${order.cod_collected_at ? formatDateTime(order.cod_collected_at) : ''}</small>`
+                    : '<span class="badge bg-warning"><i class="fas fa-clock me-1"></i>Chờ xác nhận</span>'}
+            </td>
+            <td>
+                ${isReceived 
+                    ? `<span class="badge bg-primary"><i class="fas fa-check me-1"></i>Đã nhận</span><br><small class="text-muted">${order.cod_received_at ? formatDateTime(order.cod_received_at) : ''}</small>`
+                    : '<span class="badge bg-secondary"><i class="fas fa-minus me-1"></i>Chưa nhận</span>'}
+            </td>
+            <td><span class="badge bg-info">${getStatusText(order.status)}</span></td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    ${!isCollected 
+                        ? `<button class="btn btn-success btn-sm" onclick="confirmCodCollection(${order.id})" title="Xác nhận đã thu COD">
+                                <i class="fas fa-check me-1"></i>Đã thu
+                            </button>`
+                        : ''}
+                    ${isCollected && !isReceived 
+                        ? `<button class="btn btn-primary btn-sm" onclick="confirmCodReceived(${order.id})" title="Xác nhận đã nhận COD">
+                                <i class="fas fa-inbox me-1"></i>Đã nhận
+                            </button>`
+                        : ''}
+                    ${isReceived 
+                        ? '<span class="badge bg-success">Hoàn tất</span>'
+                        : ''}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function updateCodStats(orders) {
+    const collectedCount = orders.filter(o => o.is_cod_collected).length;
+    const receivedCount = orders.filter(o => o.is_cod_received).length;
+    const pendingCollectionCount = orders.filter(o => !o.is_cod_collected).length;
+    const totalAmount = orders.reduce((sum, o) => sum + (o.cod_amount || o.total_amount || 0), 0);
+    
+    document.getElementById('cod-collected-count').textContent = collectedCount;
+    document.getElementById('cod-received-count').textContent = receivedCount;
+    document.getElementById('cod-pending-collection-count').textContent = pendingCollectionCount;
+    document.getElementById('cod-total-amount').textContent = formatCurrency(totalAmount);
+}
+
+// Helper function to show confirm dialog using Bootstrap Modal
+function showConfirmDialog(message, onConfirm) {
+    // Create modal HTML if it doesn't exist
+    let confirmModal = document.getElementById('confirmModal');
+    if (!confirmModal) {
+        confirmModal = document.createElement('div');
+        confirmModal.id = 'confirmModal';
+        confirmModal.className = 'modal fade';
+        confirmModal.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Xác nhận</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="confirmModalBody">
+                        ${message}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-primary" id="confirmModalConfirmBtn">Xác nhận</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmModal);
+    }
+    
+    // Update message
+    document.getElementById('confirmModalBody').textContent = message;
+    
+    // Remove old event listeners
+    const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', () => {
+        const modal = bootstrap.Modal.getInstance(confirmModal);
+        if (modal) {
+            modal.hide();
+        }
+        if (onConfirm) {
+            onConfirm();
+        }
+    });
+    
+    // Show modal
+    const modal = new bootstrap.Modal(confirmModal);
+    modal.show();
+}
+
+async function confirmCodCollection(orderId) {
+    showConfirmDialog('Xác nhận rằng shipper đã thu COD từ khách hàng?', async () => {
+        try {
+            showLoading();
+            const response = await apiCall('/admin/payments/confirm-collection', 'POST', {
+                order_id: orderId
+            });
+            
+            if (response.status === 'success') {
+                showNotification('Xác nhận thu COD thành công', 'success');
+                loadCodOrders();
+            } else {
+                showNotification(response.message || 'Không thể xác nhận thu COD', 'error');
+            }
+        } catch (error) {
+            showNotification(error.message || 'Không thể xác nhận thu COD', 'error');
+            console.error('confirmCodCollection error:', error);
+        } finally {
+            hideLoading();
+        }
+    });
+}
+
+async function confirmCodReceived(orderId) {
+    showConfirmDialog('Xác nhận rằng shipper đã nộp COD về công ty?', async () => {
+        try {
+            showLoading();
+            const response = await apiCall('/admin/payments/confirm-received', 'POST', {
+                order_id: orderId
+            });
+            
+            if (response.status === 'success') {
+                showNotification('Xác nhận nhận COD thành công', 'success');
+                loadCodOrders();
+            } else {
+                showNotification(response.message || 'Không thể xác nhận nhận COD', 'error');
+            }
+        } catch (error) {
+            showNotification(error.message || 'Không thể xác nhận nhận COD', 'error');
+            console.error('confirmCodReceived error:', error);
+        } finally {
+            hideLoading();
+        }
+    });
 }
 
 // Auto-refresh at a configurable interval for real-time data

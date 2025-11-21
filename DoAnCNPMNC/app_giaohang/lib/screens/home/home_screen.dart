@@ -29,7 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = context.read<AuthProvider>();
     final token = auth.token;
     if (token == null) return;
-    await context.read<OrderProvider>().fetchOrders(token, status: _selectedStatus);
+    // Fetch all orders without status filter to allow client-side filtering
+    // This ensures consistent filtering regardless of backend status format
+    await context.read<OrderProvider>().fetchOrders(token);
   }
 
   Future<void> _logout() async {
@@ -43,6 +45,58 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedStatus = status;
     });
     _loadOrders();
+  }
+
+  // Normalize status to ensure consistent comparison
+  // This function maps various backend status formats to standard format
+  String _normalizeStatus(String status) {
+    if (status.isEmpty) return status;
+    
+    // Map various status formats to standard format
+    final statusLower = status.toLowerCase().trim();
+    
+    // Check in_transit (đang giao) - exact match or specific formats
+    if (statusLower == 'in_transit' || statusLower == 'in-transit') {
+      return 'in_transit';
+    }
+    
+    // Check shipped (also means in_transit - when admin sets "Đang giao")
+    if (statusLower == 'shipped') {
+      return 'in_transit';
+    }
+    
+    // Check delivering (also means in_transit)
+    if (statusLower == 'delivering') {
+      return 'in_transit';
+    }
+    
+    // Check processing (also means in_transit - when admin assigns order)
+    if (statusLower == 'processing') {
+      return 'in_transit';
+    }
+    
+    // Check assigned_to_driver (also should show in "Đang giao" tab)
+    if (statusLower == 'assigned_to_driver' || statusLower == 'assigned-to-driver') {
+      return 'assigned_to_driver';
+    }
+    
+    // Check delivered
+    if (statusLower == 'delivered') {
+      return 'delivered';
+    }
+    
+    // Check failed_delivery
+    if (statusLower == 'failed_delivery' || statusLower == 'failed-delivery') {
+      return 'failed_delivery';
+    }
+    
+    // Check cancelled (also means failed_delivery - when admin cancels order)
+    if (statusLower == 'cancelled' || statusLower == 'canceled') {
+      return 'failed_delivery';
+    }
+    
+    // Return original if no match
+    return statusLower;
   }
 
   @override
@@ -109,10 +163,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
 
-                  if (orderProvider.orders.isEmpty) {
-                    return const Center(
+                  // Filter orders by status on client side to ensure correct filtering
+                  final displayedOrders = _selectedStatus == null
+                      ? orderProvider.orders
+                      : orderProvider.orders.where((order) {
+                          // Normalize status from order (backend format)
+                          final normalizedOrderStatus = _normalizeStatus(order.status);
+                          // Normalize selected status (constant format like 'in_transit', 'cancelled', etc.)
+                          final normalizedSelectedStatus = _normalizeStatus(_selectedStatus!);
+                          
+                          // Special case: "Đang giao" (in_transit) should include both in_transit and assigned_to_driver
+                          if (normalizedSelectedStatus == 'in_transit') {
+                            return normalizedOrderStatus == 'in_transit' || 
+                                   normalizedOrderStatus == 'assigned_to_driver';
+                          }
+                          
+                          // For other statuses (delivered, failed_delivery, cancelled), use exact match
+                          // Note: cancelled orders are normalized to 'failed_delivery' so they show in "Giao thất bại" tab
+                          return normalizedOrderStatus == normalizedSelectedStatus;
+                        }).toList();
+
+                  if (displayedOrders.isEmpty) {
+                    return Center(
                       child: Text(
-                        AppTexts.noOrders,
+                        _selectedStatus == null
+                            ? AppTexts.noOrders
+                            : 'Không có đơn hàng với trạng thái "${statuses[_selectedStatus]}"',
                         textAlign: TextAlign.center,
                       ),
                     );
@@ -121,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   return ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemBuilder: (context, index) {
-                      final order = orderProvider.orders[index];
+                      final order = displayedOrders[index];
                       return InkWell(
                         onTap: () async {
                           if (auth.token == null) return;
@@ -217,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                     separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                    itemCount: orderProvider.orders.length,
+                    itemCount: displayedOrders.length,
                   );
                 }),
               ),
