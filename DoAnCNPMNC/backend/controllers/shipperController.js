@@ -5,6 +5,7 @@ const { sendNotificationToUser } = require('./notificationController');
 const statusUpdateSchema = Joi.object({
   status: Joi.string().required(),
   notes: Joi.string().allow('', null),
+  reason: Joi.string().allow('', null), // US-18: Reason for failed delivery
 });
 
 const statusMap = {
@@ -70,7 +71,13 @@ const getMyOrders = async (req, res) => {
         u.phone AS customer_phone,
         u.email AS customer_email
       FROM orders o
-      LEFT JOIN delivery_tracking dt ON dt.order_id = o.id
+      LEFT JOIN LATERAL (
+        SELECT status, latitude, longitude
+        FROM delivery_tracking
+        WHERE order_id = o.id
+        ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+        LIMIT 1
+      ) dt ON true
       LEFT JOIN users u ON u.id = o.user_id
       WHERE o.shipper_id = $1
     `;
@@ -136,7 +143,13 @@ const getOrderDetails = async (req, res) => {
           u.phone AS customer_phone,
           u.email AS customer_email
         FROM orders o
-        LEFT JOIN delivery_tracking dt ON dt.order_id = o.id
+        LEFT JOIN LATERAL (
+          SELECT status, latitude, longitude, address
+          FROM delivery_tracking
+          WHERE order_id = o.id
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+        ) dt ON true
         LEFT JOIN users u ON u.id = o.user_id
         WHERE o.id = $1 AND o.shipper_id = $2
       `,
@@ -152,7 +165,7 @@ const getOrderDetails = async (req, res) => {
 
     const historyResult = await pool.query(
       `
-        SELECT status, notes, created_at
+        SELECT status, notes, reason, created_at
         FROM order_status_history
         WHERE order_id = $1
         ORDER BY created_at ASC
@@ -177,6 +190,7 @@ const getOrderDetails = async (req, res) => {
           status_history: historyResult.rows.map((row) => ({
             status: row.status,
             notes: row.notes,
+            reason: row.reason,
             created_at: row.created_at,
           })),
         },
@@ -290,10 +304,10 @@ const updateOrderStatus = async (req, res) => {
 
     await client.query(
       `
-        INSERT INTO order_status_history (order_id, status, notes)
-        VALUES ($1, $2, $3)
+        INSERT INTO order_status_history (order_id, status, notes, reason)
+        VALUES ($1, $2, $3, $4)
       `,
-      [id, normalizedStatus, value.notes || null],
+      [id, normalizedStatus, value.notes || null, value.reason || null],
     );
 
     await client.query(
@@ -342,10 +356,102 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+// US-17: Check-in location
+const checkInLocation = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const shipperId = req.user.id;
+    const { order_id, lat, long } = req.body;
+
+    // Validation
+    if (!order_id || lat === undefined || long === undefined) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'order_id, lat, và long là bắt buộc',
+      });
+    }
+
+    // Validate coordinates
+    if (lat < -90 || lat > 90 || long < -180 || long > 180) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Tọa độ không hợp lệ',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Verify order belongs to this shipper
+    const orderResult = await client.query(
+      `
+        SELECT id, order_number, shipper_id
+        FROM orders
+        WHERE id = $1
+        FOR UPDATE
+      `,
+      [order_id],
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng',
+      });
+    }
+
+    const order = orderResult.rows[0];
+    if (order.shipper_id !== shipperId) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        status: 'error',
+        message: 'Bạn không có quyền check-in cho đơn hàng này',
+      });
+    }
+
+    // Insert location check-in
+    const locationResult = await client.query(
+      `
+        INSERT INTO shipper_locations (shipper_id, order_id, latitude, longitude)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, created_at
+      `,
+      [shipperId, order_id, lat, long],
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      status: 'success',
+      message: 'Check-in vị trí thành công',
+      data: {
+        location: {
+          id: locationResult.rows[0].id,
+          order_id,
+          latitude: parseFloat(lat),
+          longitude: parseFloat(long),
+          created_at: locationResult.rows[0].created_at,
+        },
+      },
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('checkInLocation error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể check-in vị trí',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getMyOrders,
   getOrderDetails,
   updateOrderStatus,
+  checkInLocation,
 };
 
 

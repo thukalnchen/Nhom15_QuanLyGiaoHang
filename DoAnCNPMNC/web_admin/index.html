@@ -93,6 +93,11 @@
                         Khu vực
                         <span class="nav-link__indicator"></span>
                     </a>
+                    <a class="nav-link" href="#" onclick="showCodReconciliation()">
+                        <i class="fas fa-money-check-alt"></i>
+                        Đối soát COD
+                        <span class="nav-link__indicator"></span>
+                    </a>
                 </nav>
             </div>
         </aside>
@@ -619,6 +624,122 @@
                             </tr>
                         </thead>
                         <tbody id="areas-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- US-19 & US-12: COD Reconciliation Section -->
+    <section id="cod-section" class="section-block" style="display: none;">
+        <div class="section-header">
+            <div>
+                <p class="section-eyebrow">Quản lý thanh toán COD</p>
+                <h1 class="section-title">
+                    <i class="fas fa-money-check-alt me-2"></i>
+                    Đối soát COD
+                </h1>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(34, 197, 94, 0.1); color: #22c55e;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Đã thu COD</p>
+                            <h3 class="stat-value" id="cod-collected-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(59, 130, 246, 0.1); color: #3b82f6;">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Đã nhận COD</p>
+                            <h3 class="stat-value" id="cod-received-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Chờ xác nhận thu</p>
+                            <h3 class="stat-value" id="cod-pending-collection-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(168, 85, 247, 0.1); color: #a855f7;">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Tổng COD (VND)</p>
+                            <h3 class="stat-value" id="cod-total-amount">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <h5 class="mb-0">Danh sách đơn hàng COD</h5>
+                    </div>
+                    <div class="col-md-8 text-end">
+                        <select class="form-select form-select-sm d-inline-block w-auto" id="cod-filter-status" onchange="loadCodOrders()">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending_collection">Chờ xác nhận thu</option>
+                            <option value="collected">Đã thu COD</option>
+                            <option value="received">Đã nhận COD</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary ms-2" onclick="loadCodOrders()">
+                            <i class="fas fa-sync-alt me-1"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive table-scroll">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Mã đơn hàng</th>
+                                <th>Khách hàng</th>
+                                <th>Shipper</th>
+                                <th>Số tiền COD</th>
+                                <th>Đã thu COD</th>
+                                <th>Đã nhận COD</th>
+                                <th>Trạng thái</th>
+                                <th class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cod-orders-table">
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>

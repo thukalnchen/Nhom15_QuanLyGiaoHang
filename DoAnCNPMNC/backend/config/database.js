@@ -361,6 +361,73 @@ const createTables = async () => {
       )
     `);
 
+    // US-17: Shipper locations table for check-in tracking
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS shipper_locations (
+        id SERIAL PRIMARY KEY,
+        shipper_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // US-18: Add reason column to order_status_history
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        BEGIN
+          ALTER TABLE order_status_history ADD COLUMN reason TEXT;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+      END $$;
+    `);
+
+    // US-19 & US-12: Add COD confirmation flags to orders
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        BEGIN
+          ALTER TABLE orders ADD COLUMN is_cod_collected BOOLEAN DEFAULT FALSE;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN is_cod_received BOOLEAN DEFAULT FALSE;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cod_collected_at TIMESTAMP;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cod_received_at TIMESTAMP;
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cod_collected_by INTEGER REFERENCES users(id);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+        
+        BEGIN
+          ALTER TABLE orders ADD COLUMN cod_received_by INTEGER REFERENCES users(id);
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END;
+      END $$;
+    `);
+
     // Create indexes for better performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
@@ -371,6 +438,9 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
       CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+      CREATE INDEX IF NOT EXISTS idx_shipper_locations_shipper_id ON shipper_locations(shipper_id);
+      CREATE INDEX IF NOT EXISTS idx_shipper_locations_order_id ON shipper_locations(order_id);
+      CREATE INDEX IF NOT EXISTS idx_shipper_locations_created_at ON shipper_locations(created_at DESC);
     `);
 
     console.log('✅ Database tables created successfully');

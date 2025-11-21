@@ -113,6 +113,11 @@ const getAllOrders = async (req, res) => {
         o.created_at,
         o.updated_at,
         o.shipper_id,
+        o.is_cod_collected,
+        o.is_cod_received,
+        o.cod_collected_at,
+        o.cod_received_at,
+        o.payment_method,
         u.full_name as customer_name,
         u.email as customer_email,
         u.phone as customer_phone,
@@ -214,10 +219,41 @@ const getAllOrders = async (req, res) => {
     const countResult = await pool.query(countQuery, countParams);
     const totalCount = parseInt(countResult.rows[0].count);
 
+    // Format orders with customer and shipper info
+    const formattedOrders = result.rows.map(row => ({
+      id: row.id,
+      order_number: row.order_number,
+      restaurant_name: row.restaurant_name,
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : row.items,
+      total_amount: parseFloat(row.total_amount || 0),
+      delivery_fee: parseFloat(row.delivery_fee || 0),
+      delivery_address: row.delivery_address,
+      delivery_phone: row.delivery_phone,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      payment_method: row.payment_method || 'cod',
+      is_cod: (row.payment_method === 'cod' || row.payment_method === 'COD'), // Derive from payment_method
+      is_cod_collected: row.is_cod_collected || false,
+      is_cod_received: row.is_cod_received || false,
+      cod_collected_at: row.cod_collected_at,
+      cod_received_at: row.cod_received_at,
+      cod_amount: parseFloat(row.total_amount || 0), // COD amount equals total amount for COD orders
+      customer: row.customer_name ? {
+        full_name: row.customer_name,
+        email: row.customer_email,
+        phone: row.customer_phone
+      } : null,
+      shipper: row.shipper_name ? {
+        full_name: row.shipper_name,
+        phone: row.shipper_phone
+      } : null
+    }));
+
     res.json({
       status: 'success',
       data: {
-        orders: result.rows,
+        orders: formattedOrders,
         pagination: {
           total: totalCount,
           limit: parsedLimit,
@@ -1042,6 +1078,176 @@ const getAnalytics = async (req, res) => {
   }
 };
 
+// US-19: Confirm COD collection (Shipper đã thu COD từ khách)
+const confirmCodCollection = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { order_id } = req.body;
+    const adminId = req.user.id;
+
+    if (!order_id) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'order_id là bắt buộc'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Get order details
+    const orderResult = await client.query(
+      `SELECT id, order_number, total_amount, delivery_fee, is_cod_collected, status
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [order_id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng'
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (order.is_cod_collected) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'COD đã được xác nhận thu trước đó'
+      });
+    }
+
+    // Update order
+    await client.query(
+      `UPDATE orders
+       SET is_cod_collected = TRUE,
+           cod_collected_at = CURRENT_TIMESTAMP,
+           cod_collected_by = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [adminId, order_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      status: 'success',
+      message: 'Xác nhận thu COD thành công',
+      data: {
+        order: {
+          id: order.id,
+          order_number: order.order_number,
+          is_cod_collected: true,
+          cod_collected_at: new Date()
+        }
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('confirmCodCollection error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể xác nhận thu COD',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// US-12: Confirm COD received (Shipper đã nộp COD về công ty)
+const confirmCodReceived = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { order_id } = req.body;
+    const adminId = req.user.id;
+
+    if (!order_id) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'order_id là bắt buộc'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Get order details
+    const orderResult = await client.query(
+      `SELECT id, order_number, total_amount, delivery_fee, is_cod_collected, is_cod_received, status
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [order_id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng'
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (!order.is_cod_collected) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'COD chưa được xác nhận thu. Vui lòng xác nhận thu trước.'
+      });
+    }
+
+    if (order.is_cod_received) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'COD đã được xác nhận nhận trước đó'
+      });
+    }
+
+    // Update order
+    await client.query(
+      `UPDATE orders
+       SET is_cod_received = TRUE,
+           cod_received_at = CURRENT_TIMESTAMP,
+           cod_received_by = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [adminId, order_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      status: 'success',
+      message: 'Xác nhận nhận COD thành công',
+      data: {
+        order: {
+          id: order.id,
+          order_number: order.order_number,
+          is_cod_received: true,
+          cod_received_at: new Date()
+        }
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('confirmCodReceived error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể xác nhận nhận COD',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -1055,5 +1261,7 @@ module.exports = {
   getShipperById,
   updateShipperStatus,
   getAvailableShippers,
-  assignOrders
+  assignOrders,
+  confirmCodCollection,
+  confirmCodReceived
 };
