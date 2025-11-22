@@ -360,7 +360,7 @@ function showAnalytics() {
 }
 
 function hideAllSections() {
-    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section', 'areas-section', 'cod-section'];
+    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section', 'areas-section', 'pricing-rules-section', 'stats-dashboard-section', 'hubs-section', 'cod-section'];
     sections.forEach(section => {
         const element = document.getElementById(section);
         if (element) {
@@ -370,7 +370,14 @@ function hideAllSections() {
 }
 
 function setActiveMenu(index) {
-    const navLinks = document.querySelectorAll('.sidebar .nav-link');
+    // Select only nav-links in the sidebar navigation (not dropdown menus)
+    const sidebarNav = document.querySelector('.sidebar .nav.flex-column');
+    if (!sidebarNav) {
+        console.warn('Sidebar navigation not found');
+        return;
+    }
+    
+    const navLinks = sidebarNav.querySelectorAll('.nav-link');
     navLinks.forEach((link, i) => {
         if (i === index) {
             link.classList.add('active');
@@ -391,7 +398,7 @@ function showAreas() {
 function showCodReconciliation() {
     hideAllSections();
     document.getElementById('cod-section').style.display = 'block';
-    setActiveMenu(7);
+    setActiveMenu(9);
     // Ensure loading is reset before loading COD orders
     if (activeLoadingRequests > 0) {
         activeLoadingRequests = 0;
@@ -1459,7 +1466,10 @@ async function refreshCurrentView() {
         'shippers-section': loadShippers,
         'users-section': loadUsers,
         'analytics-section': loadAnalytics,
-        'areas-section': loadAreas
+        'areas-section': loadAreas,
+        'pricing-rules-section': loadPricingRules,
+        'stats-dashboard-section': loadStatsDashboard,
+        'hubs-section': loadHubs
     };
     
     try {
@@ -2259,6 +2269,568 @@ async function confirmCodReceived(orderId) {
             hideLoading();
         }
     });
+}
+
+// ============================================
+// Sprint 7: Pricing Rules Management (US-23)
+// ============================================
+function showPricingRules() {
+    hideAllSections();
+    document.getElementById('pricing-rules-section').style.display = 'block';
+    setActiveMenu(7);
+    loadPricingRules();
+}
+
+async function loadPricingRules() {
+    try {
+        showLoading();
+        const response = await apiCall('/pricing-rules');
+        
+        if (response && response.success) {
+            displayPricingRules(response.data || []);
+        } else {
+            showNotification('Không thể tải bảng giá', 'error');
+        }
+    } catch (error) {
+        console.error('loadPricingRules error:', error);
+        showNotification('Lỗi khi tải bảng giá: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayPricingRules(rules) {
+    const tbody = document.getElementById('pricing-rules-table');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (rules.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Chưa có bảng giá nào</td></tr>';
+        return;
+    }
+    
+    const vehicleTypeMap = {
+        'motorcycle': 'Xe máy',
+        'van_500': 'Xe tải 500kg',
+        'van_750': 'Xe tải 750kg',
+        'van_1000': 'Xe tải 1000kg'
+    };
+    
+    rules.forEach(rule => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${rule.rule_name || '-'}</td>
+            <td>${vehicleTypeMap[rule.vehicle_type] || rule.vehicle_type}</td>
+            <td>${formatCurrency(rule.base_price_per_km)}</td>
+            <td>${formatCurrency(rule.minimum_fare)}</td>
+            <td>
+                <small>
+                    Bến xe: ${formatCurrency(rule.train_station_fee)}<br>
+                    Trọng tải: ${formatCurrency(rule.extra_weight_per_kg)}/kg<br>
+                    Người phụ: ${formatCurrency(rule.helper_small_fee)} - ${formatCurrency(rule.helper_large_fee)}
+                </small>
+            </td>
+            <td>
+                <span class="badge ${rule.is_active ? 'bg-success' : 'bg-secondary'}">
+                    ${rule.is_active ? 'Kích hoạt' : 'Tạm khóa'}
+                </span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-primary btn-sm" onclick="showEditPricingRuleModal(${rule.id})" title="Sửa">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePricingRule(${rule.id})" title="Xóa">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function showCreatePricingRuleModal() {
+    document.getElementById('pricing-rule-modal-title').textContent = 'Thêm bảng giá';
+    document.getElementById('pricing-rule-id').value = '';
+    document.getElementById('pricing-rule-form').reset();
+    const modal = new bootstrap.Modal(document.getElementById('pricingRuleModal'));
+    modal.show();
+}
+
+async function showEditPricingRuleModal(id) {
+    try {
+        showLoading();
+        const response = await apiCall(`/pricing-rules/${id}`);
+        
+        if (response && response.success) {
+            const rule = response.data;
+            document.getElementById('pricing-rule-modal-title').textContent = 'Sửa bảng giá';
+            document.getElementById('pricing-rule-id').value = rule.id;
+            document.getElementById('pricing-rule-name').value = rule.rule_name || '';
+            document.getElementById('pricing-rule-vehicle-type').value = rule.vehicle_type || '';
+            document.getElementById('pricing-rule-base-price').value = rule.base_price_per_km || 0;
+            document.getElementById('pricing-rule-minimum-fare').value = rule.minimum_fare || 0;
+            document.getElementById('pricing-rule-train-station-fee').value = rule.train_station_fee || 0;
+            document.getElementById('pricing-rule-extra-weight').value = rule.extra_weight_per_kg || 0;
+            document.getElementById('pricing-rule-helper-small').value = rule.helper_small_fee || 0;
+            document.getElementById('pricing-rule-helper-large').value = rule.helper_large_fee || 0;
+            document.getElementById('pricing-rule-round-trip').value = rule.round_trip_percentage || 0;
+            document.getElementById('pricing-rule-is-active').value = rule.is_active ? 'true' : 'false';
+            document.getElementById('pricing-rule-description').value = rule.description || '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('pricingRuleModal'));
+            modal.show();
+        } else {
+            showNotification('Không thể tải thông tin bảng giá', 'error');
+        }
+    } catch (error) {
+        console.error('showEditPricingRuleModal error:', error);
+        showNotification('Lỗi khi tải thông tin bảng giá', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function savePricingRule() {
+    try {
+        const id = document.getElementById('pricing-rule-id').value;
+        const data = {
+            rule_name: document.getElementById('pricing-rule-name').value,
+            rule_type: 'base_price',
+            vehicle_type: document.getElementById('pricing-rule-vehicle-type').value,
+            base_price_per_km: parseFloat(document.getElementById('pricing-rule-base-price').value),
+            minimum_fare: parseFloat(document.getElementById('pricing-rule-minimum-fare').value),
+            train_station_fee: parseFloat(document.getElementById('pricing-rule-train-station-fee').value),
+            extra_weight_per_kg: parseFloat(document.getElementById('pricing-rule-extra-weight').value),
+            helper_small_fee: parseFloat(document.getElementById('pricing-rule-helper-small').value),
+            helper_large_fee: parseFloat(document.getElementById('pricing-rule-helper-large').value),
+            round_trip_percentage: parseFloat(document.getElementById('pricing-rule-round-trip').value),
+            is_active: document.getElementById('pricing-rule-is-active').value === 'true',
+            description: document.getElementById('pricing-rule-description').value
+        };
+        
+        showLoading();
+        let response;
+        if (id) {
+            response = await apiCall(`/pricing-rules/${id}`, 'PUT', data);
+        } else {
+            response = await apiCall('/pricing-rules', 'POST', data);
+        }
+        
+        if (response && response.success) {
+            showNotification(id ? 'Cập nhật bảng giá thành công' : 'Tạo bảng giá thành công', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('pricingRuleModal')).hide();
+            loadPricingRules();
+        } else {
+            showNotification(response?.message || 'Không thể lưu bảng giá', 'error');
+        }
+    } catch (error) {
+        console.error('savePricingRule error:', error);
+        showNotification('Lỗi khi lưu bảng giá: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deletePricingRule(id) {
+    if (!confirm('Bạn có chắc muốn xóa bảng giá này?')) return;
+    
+    try {
+        showLoading();
+        const response = await apiCall(`/pricing-rules/${id}`, 'DELETE');
+        
+        if (response && response.success) {
+            showNotification('Xóa bảng giá thành công', 'success');
+            loadPricingRules();
+        } else {
+            showNotification(response?.message || 'Không thể xóa bảng giá', 'error');
+        }
+    } catch (error) {
+        console.error('deletePricingRule error:', error);
+        showNotification('Lỗi khi xóa bảng giá', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// ============================================
+// Sprint 7: Statistics Dashboard (US-24)
+// ============================================
+function showStatsDashboard() {
+    hideAllSections();
+    document.getElementById('stats-dashboard-section').style.display = 'block';
+    setActiveMenu(9);
+    loadStatsDashboard();
+}
+
+async function loadStatsDashboard() {
+    try {
+        showLoading();
+        const period = document.getElementById('stats-period')?.value || '30';
+        
+        const [revenueResponse, performanceResponse] = await Promise.all([
+            apiCall(`/admin/stats/revenue?period=${period}`),
+            apiCall(`/admin/stats/performance?period=${period}`)
+        ]);
+        
+        if (revenueResponse && revenueResponse.success) {
+            displayRevenueStats(revenueResponse.data);
+        }
+        
+        if (performanceResponse && performanceResponse.success) {
+            displayPerformanceStats(performanceResponse.data);
+        }
+    } catch (error) {
+        console.error('loadStatsDashboard error:', error);
+        showNotification('Lỗi khi tải thống kê: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayRevenueStats(data) {
+    // Update summary cards
+    if (data.summary) {
+        document.getElementById('stats-total-revenue').textContent = formatCurrency(data.summary.totalRevenue);
+        document.getElementById('stats-total-orders').textContent = data.summary.totalOrders || 0;
+    }
+    
+    // Revenue chart
+    const ctx = document.getElementById('statsRevenueChart');
+    if (ctx && data.byDay) {
+        if (charts.statsRevenue) charts.statsRevenue.destroy();
+        
+        charts.statsRevenue = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.byDay.map(d => new Date(d.date).toLocaleDateString('vi-VN')),
+                datasets: [{
+                    label: 'Doanh thu (VNĐ)',
+                    data: data.byDay.map(d => d.totalRevenue),
+                    borderColor: '#ff7f32',
+                    backgroundColor: 'rgba(255, 127, 50, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatCurrency(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function displayPerformanceStats(data) {
+    // Update summary cards
+    if (data.summary) {
+        document.getElementById('stats-success-rate').textContent = data.summary.successRate + '%';
+        document.getElementById('stats-cancellation-rate').textContent = data.summary.cancellationRate + '%';
+    }
+    
+    // Status chart
+    const ctxStatus = document.getElementById('statsStatusChart');
+    if (ctxStatus && data.statusBreakdown) {
+        if (charts.statsStatus) charts.statsStatus.destroy();
+        
+        charts.statsStatus = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: data.statusBreakdown.map(s => getStatusText(s.status)),
+                datasets: [{
+                    data: data.statusBreakdown.map(s => s.count),
+                    backgroundColor: [
+                        '#1abc9c', '#ffb547', '#ff5c5c', '#3b82f6', '#a855f7'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+    
+    // Vehicle type chart
+    const ctxVehicle = document.getElementById('statsVehicleChart');
+    if (ctxVehicle && data.byVehicleType) {
+        if (charts.statsVehicle) charts.statsVehicle.destroy();
+        
+        const vehicleTypeMap = {
+            'motorcycle': 'Xe máy',
+            'van_500': 'Xe tải 500kg',
+            'van_750': 'Xe tải 750kg',
+            'van_1000': 'Xe tải 1000kg'
+        };
+        
+        charts.statsVehicle = new Chart(ctxVehicle, {
+            type: 'bar',
+            data: {
+                labels: data.byVehicleType.map(v => vehicleTypeMap[v.vehicleType] || v.vehicleType),
+                datasets: [{
+                    label: 'Tổng đơn',
+                    data: data.byVehicleType.map(v => v.totalOrders),
+                    backgroundColor: '#3b82f6'
+                }, {
+                    label: 'Thành công',
+                    data: data.byVehicleType.map(v => v.successfulOrders),
+                    backgroundColor: '#1abc9c'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+    
+    // Performance by day chart
+    const ctxPerf = document.getElementById('statsPerformanceChart');
+    if (ctxPerf && data.byDay) {
+        if (charts.statsPerformance) charts.statsPerformance.destroy();
+        
+        charts.statsPerformance = new Chart(ctxPerf, {
+            type: 'line',
+            data: {
+                labels: data.byDay.map(d => new Date(d.date).toLocaleDateString('vi-VN')),
+                datasets: [{
+                    label: 'Tỷ lệ thành công (%)',
+                    data: data.byDay.map(d => parseFloat(d.successRate)),
+                    borderColor: '#1abc9c',
+                    backgroundColor: 'rgba(26, 188, 156, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// ============================================
+// Sprint 7: Hubs Management (US-26)
+// ============================================
+function showHubs() {
+    hideAllSections();
+    document.getElementById('hubs-section').style.display = 'block';
+    setActiveMenu(8);
+    loadHubs();
+}
+
+async function loadHubs() {
+    try {
+        showLoading();
+        const response = await apiCall('/admin/hubs');
+        
+        if (response && response.success) {
+            displayHubs(response.data || []);
+        } else {
+            showNotification('Không thể tải danh sách kho/bưu cục', 'error');
+        }
+    } catch (error) {
+        console.error('loadHubs error:', error);
+        showNotification('Lỗi khi tải danh sách kho/bưu cục: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayHubs(hubs) {
+    const tbody = document.getElementById('hubs-table');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (hubs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Chưa có kho/bưu cục nào</td></tr>';
+        return;
+    }
+    
+    const hubTypeMap = {
+        'warehouse': 'Kho',
+        'post_office': 'Bưu cục',
+        'checkpoint': 'Điểm check-in'
+    };
+    
+    hubs.forEach(hub => {
+        const row = document.createElement('tr');
+        const lat = hub.latitude ? parseFloat(hub.latitude).toFixed(6) : '-';
+        const lng = hub.longitude ? parseFloat(hub.longitude).toFixed(6) : '-';
+        
+        row.innerHTML = `
+            <td><strong>${hub.hub_code}</strong></td>
+            <td>${hub.hub_name}</td>
+            <td>${hubTypeMap[hub.hub_type] || hub.hub_type}</td>
+            <td>${hub.address || '-'}</td>
+            <td><small>${lat}, ${lng}</small></td>
+            <td>
+                <small>
+                    ${hub.contact_phone ? `ĐT: ${hub.contact_phone}<br>` : ''}
+                    ${hub.contact_email ? `Email: ${hub.contact_email}` : ''}
+                </small>
+            </td>
+            <td>
+                <span class="badge ${hub.is_active ? 'bg-success' : 'bg-secondary'}">
+                    ${hub.is_active ? 'Hoạt động' : 'Tạm khóa'}
+                </span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-primary btn-sm" onclick="showEditHubModal(${hub.id})" title="Sửa">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteHub(${hub.id})" title="Xóa">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function showCreateHubModal() {
+    document.getElementById('hub-modal-title').textContent = 'Thêm kho/bưu cục';
+    document.getElementById('hub-id').value = '';
+    document.getElementById('hub-form').reset();
+    const modal = new bootstrap.Modal(document.getElementById('hubModal'));
+    modal.show();
+}
+
+async function showEditHubModal(id) {
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/hubs/${id}`);
+        
+        if (response && response.success) {
+            const hub = response.data;
+            document.getElementById('hub-modal-title').textContent = 'Sửa kho/bưu cục';
+            document.getElementById('hub-id').value = hub.id;
+            document.getElementById('hub-code').value = hub.hub_code || '';
+            document.getElementById('hub-name').value = hub.hub_name || '';
+            document.getElementById('hub-type').value = hub.hub_type || '';
+            document.getElementById('hub-address').value = hub.address || '';
+            document.getElementById('hub-latitude').value = hub.latitude || '';
+            document.getElementById('hub-longitude').value = hub.longitude || '';
+            document.getElementById('hub-phone').value = hub.contact_phone || '';
+            document.getElementById('hub-email').value = hub.contact_email || '';
+            document.getElementById('hub-manager').value = hub.manager_name || '';
+            document.getElementById('hub-hours').value = hub.operating_hours || '';
+            document.getElementById('hub-description').value = hub.description || '';
+            document.getElementById('hub-is-active').value = hub.is_active ? 'true' : 'false';
+            
+            const modal = new bootstrap.Modal(document.getElementById('hubModal'));
+            modal.show();
+        } else {
+            showNotification('Không thể tải thông tin kho/bưu cục', 'error');
+        }
+    } catch (error) {
+        console.error('showEditHubModal error:', error);
+        showNotification('Lỗi khi tải thông tin kho/bưu cục', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function saveHub() {
+    try {
+        const id = document.getElementById('hub-id').value;
+        const data = {
+            hub_code: document.getElementById('hub-code').value,
+            hub_name: document.getElementById('hub-name').value,
+            hub_type: document.getElementById('hub-type').value,
+            address: document.getElementById('hub-address').value,
+            latitude: parseFloat(document.getElementById('hub-latitude').value),
+            longitude: parseFloat(document.getElementById('hub-longitude').value),
+            contact_phone: document.getElementById('hub-phone').value || null,
+            contact_email: document.getElementById('hub-email').value || null,
+            manager_name: document.getElementById('hub-manager').value || null,
+            operating_hours: document.getElementById('hub-hours').value || null,
+            description: document.getElementById('hub-description').value || null,
+            is_active: document.getElementById('hub-is-active').value === 'true'
+        };
+        
+        showLoading();
+        let response;
+        if (id) {
+            response = await apiCall(`/admin/hubs/${id}`, 'PUT', data);
+        } else {
+            response = await apiCall('/admin/hubs', 'POST', data);
+        }
+        
+        if (response && response.success) {
+            showNotification(id ? 'Cập nhật kho/bưu cục thành công' : 'Tạo kho/bưu cục thành công', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('hubModal')).hide();
+            loadHubs();
+        } else {
+            showNotification(response?.message || 'Không thể lưu kho/bưu cục', 'error');
+        }
+    } catch (error) {
+        console.error('saveHub error:', error);
+        showNotification('Lỗi khi lưu kho/bưu cục: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteHub(id) {
+    if (!confirm('Bạn có chắc muốn xóa kho/bưu cục này?')) return;
+    
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/hubs/${id}`, 'DELETE');
+        
+        if (response && response.success) {
+            showNotification('Xóa kho/bưu cục thành công', 'success');
+            loadHubs();
+        } else {
+            showNotification(response?.message || 'Không thể xóa kho/bưu cục', 'error');
+        }
+    } catch (error) {
+        console.error('deleteHub error:', error);
+        showNotification('Lỗi khi xóa kho/bưu cục', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // Auto-refresh at a configurable interval for real-time data

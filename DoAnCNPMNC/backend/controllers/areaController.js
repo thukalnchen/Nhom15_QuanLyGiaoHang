@@ -5,13 +5,21 @@ const { pool } = require('../config/database');
 const createAreaSchema = Joi.object({
   name: Joi.string().required().max(255),
   code: Joi.string().required().max(50),
-  description: Joi.string().allow('', null)
+  description: Joi.string().allow('', null),
+  center_latitude: Joi.number().min(-90).max(90).allow(null).optional(),
+  center_longitude: Joi.number().min(-180).max(180).allow(null).optional(),
+  service_radius_km: Joi.number().min(0).default(10.0).optional(),
+  is_active: Joi.boolean().default(true).optional()
 });
 
 const updateAreaSchema = Joi.object({
   name: Joi.string().max(255),
   code: Joi.string().max(50),
-  description: Joi.string().allow('', null)
+  description: Joi.string().allow('', null),
+  center_latitude: Joi.number().min(-90).max(90).allow(null).optional(),
+  center_longitude: Joi.number().min(-180).max(180).allow(null).optional(),
+  service_radius_km: Joi.number().min(0).optional(),
+  is_active: Joi.boolean().optional()
 });
 
 // Get all areas
@@ -20,7 +28,7 @@ const getAllAreas = async (req, res) => {
     const { limit = 100, offset = 0 } = req.query;
 
     const result = await pool.query(
-      `SELECT id, name, code, description, created_at, updated_at
+      `SELECT id, name, code, description, center_latitude, center_longitude, service_radius_km, is_active, created_at, updated_at
        FROM delivery_areas
        ORDER BY name ASC
        LIMIT $1 OFFSET $2`,
@@ -43,7 +51,18 @@ const getAllAreas = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting areas:', error.message);
+    console.error('Error getting areas:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Check if table doesn't exist
+    if (error.code === '42P01') {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Bảng delivery_areas chưa được tạo. Vui lòng chạy migration script migrate_sprint7.sql',
+        error: error.message
+      });
+    }
+    
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách khu vực',
@@ -58,7 +77,7 @@ const getAreaById = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT id, name, code, description, created_at, updated_at
+      `SELECT id, name, code, description, center_latitude, center_longitude, service_radius_km, is_active, created_at, updated_at
        FROM delivery_areas
        WHERE id = $1`,
       [id]
@@ -110,10 +129,18 @@ const createArea = async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO delivery_areas (name, code, description)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, code, description, created_at, updated_at`,
-      [value.name, value.code, value.description || null]
+      `INSERT INTO delivery_areas (name, code, description, center_latitude, center_longitude, service_radius_km, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, name, code, description, center_latitude, center_longitude, service_radius_km, is_active, created_at, updated_at`,
+      [
+        value.name, 
+        value.code, 
+        value.description || null,
+        value.center_latitude || null,
+        value.center_longitude || null,
+        value.service_radius_km || 10.0,
+        value.is_active !== undefined ? value.is_active : true
+      ]
     );
 
     res.status(201).json({
@@ -192,6 +219,26 @@ const updateArea = async (req, res) => {
       params.push(value.description || null);
       paramCount++;
     }
+    if (value.center_latitude !== undefined) {
+      updates.push(`center_latitude = $${paramCount}`);
+      params.push(value.center_latitude || null);
+      paramCount++;
+    }
+    if (value.center_longitude !== undefined) {
+      updates.push(`center_longitude = $${paramCount}`);
+      params.push(value.center_longitude || null);
+      paramCount++;
+    }
+    if (value.service_radius_km !== undefined) {
+      updates.push(`service_radius_km = $${paramCount}`);
+      params.push(value.service_radius_km);
+      paramCount++;
+    }
+    if (value.is_active !== undefined) {
+      updates.push(`is_active = $${paramCount}`);
+      params.push(value.is_active);
+      paramCount++;
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({
@@ -207,7 +254,7 @@ const updateArea = async (req, res) => {
       UPDATE delivery_areas 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, code, description, created_at, updated_at
+      RETURNING id, name, code, description, center_latitude, center_longitude, service_radius_km, is_active, created_at, updated_at
     `;
 
     const result = await pool.query(query, params);
