@@ -1,42 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'dart:io' show Platform;
 
 // ===== APP CONFIG =====
+enum Environment { development, staging, production }
+enum DeviceType { web, emulator, physicalDevice }
+
 class AppConfig {
   static const String appName = 'Lalamove';
   static const String appVersion = '1.0.0';
   
-  // IMPORTANT: Set these for your development environment
-  static const String laptopIp = '192.168.1.173'; // ⚠️ Your laptop's IP (run "ipconfig" to get it)
-  static const bool usePhysicalDevice = true;     // ⚠️ Set to false if using Android Emulator
+  // 🔧 CONFIGURATION - Change these based on your setup
+  static const Environment currentEnv = Environment.development;
+  static const String laptopIp = '192.168.1.173'; // Your laptop IP (run "ipconfig")
+  static const bool usePhysicalDevice = true;     // false = Emulator, true = Physical Device
   
-  // Smart detection: Web → localhost, Emulator → 10.0.2.2, Physical Device → laptop IP
-  static String get apiBaseUrl {
-    if (kIsWeb) {
-      // Running on Web browser
-      return 'http://localhost:3000/api';
-    } else {
-      // Running on mobile (Android/iOS)
-      if (usePhysicalDevice) {
-        // Physical device: Use laptop IP (both devices must be on same WiFi)
-        return 'http://$laptopIp:3000/api';
-      } else {
-        // Android Emulator: Use special IP that maps to host machine
-        return 'http://10.0.2.2:3000/api';
-      }
+  // 🎯 Auto-detect device type
+  static DeviceType get deviceType {
+    if (kIsWeb) return DeviceType.web;
+    return usePhysicalDevice ? DeviceType.physicalDevice : DeviceType.emulator;
+  }
+  
+  // 🌐 Environment URLs
+  static Map<Environment, String> get environmentUrls => {
+    Environment.development: _getDevUrl(),
+    Environment.staging: 'https://staging-api.lalamove.com/api',
+    Environment.production: 'https://api.lalamove.com/api',
+  };
+  
+  // 📍 Smart URL detection based on platform
+  static String _getDevUrl() {
+    switch (deviceType) {
+      case DeviceType.web:
+        return 'http://localhost:3000/api';
+      case DeviceType.emulator:
+        return 'http://10.0.2.2:3000/api'; // Android Emulator special IP
+      case DeviceType.physicalDevice:
+        return 'http://$laptopIp:3000/api'; // Must be on same WiFi
     }
   }
   
+  // 🔌 API Base URL (automatically selected)
+  static String get apiBaseUrl => environmentUrls[currentEnv]!;
+  
+  // 🔌 Socket URL
   static String get socketUrl {
-    if (kIsWeb) {
-      return 'http://localhost:3000';
-    } else {
-      if (usePhysicalDevice) {
-        return 'http://$laptopIp:3000';
-      } else {
+    if (currentEnv != Environment.development) {
+      return apiBaseUrl.replaceAll('/api', '');
+    }
+    switch (deviceType) {
+      case DeviceType.web:
+        return 'http://localhost:3000';
+      case DeviceType.emulator:
         return 'http://10.0.2.2:3000';
-      }
+      case DeviceType.physicalDevice:
+        return 'http://$laptopIp:3000';
+    }
+  }
+  
+  // 📊 Debug Info
+  static void printConfig() {
+    if (kDebugMode) {
+      print('🔧 ========== APP CONFIG ==========');
+      print('📱 App: $appName v$appVersion');
+      print('🌍 Environment: ${currentEnv.name.toUpperCase()}');
+      print('💻 Device Type: ${deviceType.name}');
+      print('🔌 API URL: $apiBaseUrl');
+      print('🔌 Socket URL: $socketUrl');
+      print('🔧 ================================');
     }
   }
 }
