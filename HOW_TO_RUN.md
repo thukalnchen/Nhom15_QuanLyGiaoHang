@@ -103,43 +103,20 @@ flutter pub get
 flutter run
 ```
 
-### Lựa Chọn 3: Chạy các App Khác
+### Lựa Chọn 3: Chạy App Giao Hàng (Driver/Deliverer)
 
-**App User (Khách hàng):**
+**App Giao Hàng (cho Tài xế và Người giao hàng):**
 ```powershell
-cd "e:\linh Tinh\DoAn\Nhom15_QuanLyGiaoHang\DoAnCNPMNC\app_user"
+cd "e:\linh Tinh\DoAn\Nhom15_QuanLyGiaoHang\DoAnCNPMNC\app_giaohang"
 
 flutter pub get
 
 flutter run -d chrome
 ```
 
-**App Driver (Tài xế):**
-```powershell
-cd "e:\linh Tinh\DoAn\Nhom15_QuanLyGiaoHang\DoAnCNPMNC\app_driver"
-
-flutter pub get
-
-flutter run -d chrome
-```
-
-**App Deliverer (Giao hàng):**
-```powershell
-cd "e:\linh Tinh\DoAn\Nhom15_QuanLyGiaoHang\DoAnCNPMNC\app_deliverer"
-
-flutter pub get
-
-flutter run -d chrome
-```
-
-**App Intake (Tiếp nhận):**
-```powershell
-cd "e:\linh Tinh\DoAn\Nhom15_QuanLyGiaoHang\DoAnCNPMNC\app_intake"
-
-flutter pub get
-
-flutter run -d chrome
-```
+> **Lưu ý:** 
+> - `lalamove_app` đã tích hợp chức năng User (Khách hàng) và Intake (Tiếp nhận)
+> - `app_giaohang` thay thế cho app_driver và app_deliverer cũ
 
 ---
 
@@ -263,17 +240,19 @@ DoAnCNPMNC/
 │   ├── config/            ← Configuration
 │   └── scripts/           ← Database scripts
 │
-├── lalamove_app/          ← Flutter main app
+├── lalamove_app/          ← Flutter main app (tích hợp User + Intake)
 │   ├── lib/
 │   │   ├── screens/       ← All UI screens
+│   │   │   ├── user/      ← User screens (Khách hàng)
+│   │   │   └── intake/    ← Intake screens (Tiếp nhận)
 │   │   ├── widgets/       ← Reusable components
 │   │   ├── services/      ← API services
 │   │   └── main.dart      ← Entry point
 │
-├── app_user/              ← User app (Flutter)
-├── app_driver/            ← Driver app (Flutter)
-├── app_deliverer/         ← Deliverer app (Flutter)
-└── app_intake/            ← Intake app (Flutter)
+└── app_giaohang/          ← App giao hàng (Driver + Deliverer)
+    └── lib/
+        ├── screens/       ← Driver & Deliverer screens
+        └── services/      ← API services
 ```
 
 ---

@@ -18,6 +18,10 @@ import 'utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 📊 Print app configuration
+  AppConfig.printConfig();
+  
   runApp(const MyApp());
 }
 

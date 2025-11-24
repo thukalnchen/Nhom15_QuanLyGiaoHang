@@ -223,61 +223,73 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             children: [
                               // Header: Icon + Order Number + Status
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: AppUtils.getStatusColor(order['status']).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(
-                                          _getVehicleIcon(order['vehicle_type']),
-                                          color: AppUtils.getStatusColor(order['status']),
-                                          size: 24,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            order['order_number'] ?? 'ORD-XXXX',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            color: AppUtils.getStatusColor(order['status']).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _getVehicleText(order['vehicle_type']),
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: AppColors.grey,
-                                            ),
+                                          child: Icon(
+                                            _getVehicleIcon(order['vehicle_type']),
+                                            color: AppUtils.getStatusColor(order['status']),
+                                            size: 24,
                                           ),
-                                        ],
-                                      ),
-                                    ],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                order['order_number'] ?? 'ORD-XXXX',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                _getVehicleText(order['vehicle_type']),
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: AppColors.grey,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppUtils.getStatusColor(order['status']),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      AppUtils.getStatusText(order['status']),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppUtils.getStatusColor(order['status']),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        AppUtils.getStatusText(order['status']),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ),
@@ -350,9 +362,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               
                               // Footer: Price + Time + Cancel Button + Arrow
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
+                                    flex: 3,
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
@@ -360,26 +372,32 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                           AppUtils.formatCurrency(order['total_amount']?.toDouble() ?? 0),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 18,
+                                            fontSize: 16,
                                             color: AppColors.primary,
                                           ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
                                             Icon(
                                               Icons.access_time,
-                                              size: 14,
+                                              size: 12,
                                               color: AppColors.grey,
                                             ),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              AppUtils.formatDateTime(
-                                                DateTime.parse(order['created_at']),
-                                              ),
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.grey,
+                                            Expanded(
+                                              child: Text(
+                                                AppUtils.formatDateTime(
+                                                  DateTime.parse(order['created_at']),
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.grey,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
@@ -388,23 +406,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                     ),
                                   ),
                                   // Show cancel button if order can be cancelled
-                                  if (_canCancelOrder(order['status']))
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: OutlinedButton.icon(
+                                  if (_canCancelOrder(order['status'])) ...[
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      height: 28,
+                                      child: OutlinedButton(
                                         onPressed: () => _showCancelDialog(order),
-                                        icon: const Icon(Icons.cancel_outlined, size: 16),
-                                        label: const Text('Hủy'),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.red,
-                                          side: const BorderSide(color: Colors.red),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          side: const BorderSide(color: Colors.red, width: 1),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          minimumSize: const Size(0, 28),
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                         ),
+                                        child: const Text('Hủy', style: TextStyle(fontSize: 11)),
                                       ),
                                     ),
+                                  ],
+                                  const SizedBox(width: 8),
                                   Icon(
                                     Icons.arrow_forward_ios,
-                                    size: 16,
+                                    size: 14,
                                     color: AppColors.grey,
                                   ),
                                 ],

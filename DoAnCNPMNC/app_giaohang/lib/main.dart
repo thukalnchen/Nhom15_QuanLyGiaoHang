@@ -12,6 +12,10 @@ import 'utils/constants.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 📊 Print app configuration
+  AppConfig.printConfig();
+  
   runApp(const ShipperApp());
 }
 
