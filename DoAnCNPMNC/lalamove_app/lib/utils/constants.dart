@@ -1,19 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 // ===== APP CONFIG =====
 class AppConfig {
   static const String appName = 'Lalamove';
   static const String appVersion = '1.0.0';
   
-  // Auto-detect platform: localhost for Web, 10.0.2.2 for Android Emulator
-  static final String apiBaseUrl = kIsWeb 
-      ? 'http://localhost:3000/api'  // Web browser
-      : 'http://10.0.2.2:3000/api';   // Android Emulator
+  // IMPORTANT: Set these for your development environment
+  static const String laptopIp = '192.168.1.173'; // ⚠️ Your laptop's IP (run "ipconfig" to get it)
+  static const bool usePhysicalDevice = true;     // ⚠️ Set to false if using Android Emulator
   
-  static final String socketUrl = kIsWeb
-      ? 'http://localhost:3000'       // Web browser
-      : 'http://10.0.2.2:3000';        // Android Emulator
+  // Smart detection: Web → localhost, Emulator → 10.0.2.2, Physical Device → laptop IP
+  static String get apiBaseUrl {
+    if (kIsWeb) {
+      // Running on Web browser
+      return 'http://localhost:3000/api';
+    } else {
+      // Running on mobile (Android/iOS)
+      if (usePhysicalDevice) {
+        // Physical device: Use laptop IP (both devices must be on same WiFi)
+        return 'http://$laptopIp:3000/api';
+      } else {
+        // Android Emulator: Use special IP that maps to host machine
+        return 'http://10.0.2.2:3000/api';
+      }
+    }
+  }
+  
+  static String get socketUrl {
+    if (kIsWeb) {
+      return 'http://localhost:3000';
+    } else {
+      if (usePhysicalDevice) {
+        return 'http://$laptopIp:3000';
+      } else {
+        return 'http://10.0.2.2:3000';
+      }
+    }
+  }
 }
 
 // ===== COLORS (LALAMOVE THEME) =====
@@ -59,14 +84,9 @@ class StorageKeys {
 
 // ===== APP CONSTANTS =====
 class AppConstants {
-  // Auto-detect platform: localhost for Web, 10.0.2.2 for Android Emulator
-  static final String apiBaseUrl = kIsWeb 
-      ? 'http://localhost:3000/api'  // Web browser
-      : 'http://10.0.2.2:3000/api';   // Android Emulator
-  
-  static final String socketUrl = kIsWeb
-      ? 'http://localhost:3000'       // Web browser
-      : 'http://10.0.2.2:3000';        // Android Emulator
+  // Use the same IP configuration as AppConfig
+  static final String apiBaseUrl = AppConfig.apiBaseUrl;
+  static final String socketUrl = AppConfig.socketUrl;
   
   // API Endpoints
   static const String loginEndpoint = '/auth/login';

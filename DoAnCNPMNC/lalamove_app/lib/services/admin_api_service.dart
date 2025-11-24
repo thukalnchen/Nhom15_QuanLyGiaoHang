@@ -4,7 +4,7 @@ import '../utils/constants.dart';
 
 /// API Service cho Stories #20-24 (Admin Management)
 class AdminApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   // ===== STORY #20: ORDERS MANAGEMENT =====
 

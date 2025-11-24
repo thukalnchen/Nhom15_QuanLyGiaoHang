@@ -186,16 +186,22 @@ class WarehouseProvider with ChangeNotifier {
   }
 
   // Get available drivers (Story #21)
+  // Load drivers khả dụng theo vehicle_type
   Future<List<Map<String, dynamic>>> getAvailableDrivers({
     required String token,
-    String? vehicleType,
+    required String vehicleType,
   }) async {
     try {
-      final response = await _apiService.getAvailableDrivers(token);
-      
+      print('📡 getAvailableDrivers: vehicleType=$vehicleType');
+      final response = await _apiService.getAvailableDrivers(
+        token,
+        vehicleType,
+      );
+      print('✅ getAvailableDrivers: ${response.length} drivers');
       return response;
     } catch (e) {
-      _errorMessage = 'Lỗi kết nối: ${e.toString()}';
+      print('❌ getAvailableDrivers error: $e');
+      _errorMessage = 'Lỗi tải danh sách tài xế: ${e.toString()}';
       notifyListeners();
       return [];
     }

@@ -342,30 +342,55 @@ class ApiService {
 
   // ===== STORY #21: DRIVER ASSIGNMENT =====
 
-  Future<List<Map<String, dynamic>>> getAvailableDrivers(String token) async {
+  /// Get available drivers filtered by vehicle_type
+  /// Backend: GET /warehouse/drivers/available?vehicle_type=bike
+  Future<List<Map<String, dynamic>>> getAvailableDrivers(
+    String token,
+    String vehicleType,
+  ) async {
     try {
+      print('📡 API getAvailableDrivers: vehicleType=$vehicleType');
+      final url = '$baseUrl/warehouse/drivers/available?vehicle_type=$vehicleType';
+      print('📡 API URL: $url');
+      
       final response = await http.get(
-        Uri.parse('$baseUrl/driver-assignment/available-drivers'),
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
 
+      print('📥 API Response status: ${response.statusCode}');
+      print('📥 API Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+        // Backend returns { success: true, drivers: [...] }
+        if (data['success'] == true && data['drivers'] != null) {
+          final drivers = List<Map<String, dynamic>>.from(data['drivers']);
+          print('✅ API getAvailableDrivers: ${drivers.length} drivers');
+          return drivers;
+        }
+        print('⚠️ API getAvailableDrivers: No drivers in response');
+        return [];
       }
+      print('❌ API getAvailableDrivers: status ${response.statusCode}');
       return [];
     } catch (e) {
+      print('❌ getAvailableDrivers error: $e');
       return [];
     }
   }
 
+  /// Assign driver to order
+  /// Backend: POST /warehouse/assign-driver
   Future<bool> assignDriver(String token, String orderId, String driverId) async {
     try {
+      print('📡 API assignDriver: orderId=$orderId, driverId=$driverId');
+      
       final response = await http.post(
-        Uri.parse('$baseUrl/driver-assignment/assign'),
+        Uri.parse('$baseUrl/warehouse/assign-driver'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -376,8 +401,15 @@ class ApiService {
         }),
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      print('📥 API assignDriver status: ${response.statusCode}');
+      print('📥 API assignDriver body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+      final success = response.statusCode == 200 && data['success'] == true;
+      print(success ? '✅ API assignDriver: success' : '❌ API assignDriver: failed');
+      return success;
     } catch (e) {
+      print('❌ assignDriver error: $e');
       return false;
     }
   }

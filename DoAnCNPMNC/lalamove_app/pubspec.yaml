@@ -14,7 +14,6 @@ dependencies:
   socket_io_client: ^2.0.3+1
   shared_preferences: ^2.2.2
   json_annotation: ^4.8.1
-  qr_code_scanner: ^1.0.1
   mobile_scanner: ^3.5.5
   image_picker: ^1.0.7
   camera: ^0.10.5+9
