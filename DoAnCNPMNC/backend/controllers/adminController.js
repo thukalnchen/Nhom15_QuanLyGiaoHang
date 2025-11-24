@@ -772,11 +772,14 @@ const getShipperById = async (req, res) => {
 // Get available shippers (approved and not overloaded)
 const getAvailableShippers = async (req, res) => {
   try {
-    const { limit = 50 } = req.query;
+    const { limit = 50, max_active_orders = null } = req.query;
 
-    // Get shippers who are approved and have less than 3 active orders
-    const result = await pool.query(
-      `SELECT 
+    console.log('📡 getAvailableShippers called with limit:', limit, 'max_active_orders:', max_active_orders);
+
+    // Show all shippers that can be assigned (exclude only pending, rejected, suspended)
+    // This includes: approved, active, and any other status that's not explicitly blocked
+    const query = `
+      SELECT 
         u.id,
         u.full_name,
         u.email,
@@ -784,33 +787,59 @@ const getAvailableShippers = async (req, res) => {
         u.status,
         sp.vehicle_type,
         sp.vehicle_plate,
-        COUNT(o.id) FILTER (WHERE o.status IN ('processing', 'shipped', 'assigned_to_driver')) as active_orders_count
+        COALESCE(COUNT(o.id) FILTER (WHERE o.status IN ('processing', 'shipped', 'assigned_to_driver')), 0) as active_orders_count
       FROM users u
       LEFT JOIN shipper_profiles sp ON sp.user_id = u.id
       LEFT JOIN orders o ON o.shipper_id = u.id AND o.status IN ('processing', 'shipped', 'assigned_to_driver')
       WHERE u.role = 'shipper' 
-        AND u.status = 'approved'
+        AND u.status NOT IN ('pending', 'rejected', 'suspended')
       GROUP BY u.id, u.full_name, u.email, u.phone, u.status, sp.vehicle_type, sp.vehicle_plate
-      HAVING COUNT(o.id) FILTER (WHERE o.status IN ('processing', 'shipped', 'assigned_to_driver')) < 3
-      ORDER BY active_orders_count ASC, u.full_name ASC
-      LIMIT $1`,
-      [parseInt(limit, 10)]
-    );
+    `;
+
+    const params = [];
+    let paramCount = 1;
+
+    let finalQuery = query;
+
+    // Optional filter by max active orders (if provided)
+    if (max_active_orders !== null && !isNaN(parseInt(max_active_orders))) {
+      finalQuery += ` HAVING COALESCE(COUNT(o.id) FILTER (WHERE o.status IN ('processing', 'shipped', 'assigned_to_driver')), 0) < $${paramCount}`;
+      params.push(parseInt(max_active_orders));
+      paramCount++;
+    }
+
+    finalQuery += ` ORDER BY 
+      CASE WHEN u.status = 'approved' THEN 1 
+           WHEN u.status = 'active' THEN 2 
+           ELSE 3 END,
+      active_orders_count ASC, 
+      u.full_name ASC 
+      LIMIT $${paramCount}`;
+    params.push(parseInt(limit, 10));
+
+    console.log('🔍 Executing query for available shippers (excluding pending/rejected/suspended)');
+    const result = await pool.query(finalQuery, params);
+
+    console.log(`✅ Found ${result.rows.length} available shippers`);
+
+    const shippers = result.rows.map(row => ({
+      id: row.id,
+      full_name: row.full_name,
+      email: row.email,
+      phone: row.phone,
+      status: row.status,
+      vehicle_type: row.vehicle_type || null,
+      vehicle_plate: row.vehicle_plate || null,
+      active_orders_count: parseInt(row.active_orders_count || 0)
+    }));
 
     res.json({
       status: 'success',
-      data: result.rows.map(row => ({
-        id: row.id,
-        full_name: row.full_name,
-        email: row.email,
-        phone: row.phone,
-        vehicle_type: row.vehicle_type,
-        vehicle_plate: row.vehicle_plate,
-        active_orders_count: parseInt(row.active_orders_count || 0)
-      }))
+      data: shippers
     });
   } catch (error) {
-    console.error('Error getting available shippers:', error.message);
+    console.error('❌ Error getting available shippers:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách shipper có sẵn',
@@ -840,17 +869,17 @@ const assignOrders = async (req, res) => {
       });
     }
 
-    // Verify shipper exists and is approved
+    // Verify shipper exists and can be assigned (exclude pending, rejected, suspended)
     const shipperResult = await client.query(
       `SELECT id, full_name, email, status FROM users 
-       WHERE id = $1 AND role = 'shipper' AND status = 'approved'`,
+       WHERE id = $1 AND role = 'shipper' AND status NOT IN ('pending', 'rejected', 'suspended')`,
       [shipper_id]
     );
 
     if (shipperResult.rows.length === 0) {
       return res.status(404).json({
         status: 'error',
-        message: 'Shipper không tồn tại hoặc chưa được duyệt'
+        message: 'Shipper không tồn tại hoặc không thể gán đơn (chưa được duyệt, bị từ chối hoặc tạm khóa)'
       });
     }
 

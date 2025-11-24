@@ -80,11 +80,11 @@
 Map<String, WidgetBuilder> getStoriesRoutes() {
   final routes = <String, WidgetBuilder>{};
   
-  routes.addAll(OrdersManagementScreens.getRoutes(context));
-  routes.addAll(DriverAssignmentScreens.getRoutes(context));
-  routes.addAll(RouteManagementScreens.getRoutes(context));
-  routes.addAll(PricingPolicyScreens.getRoutes(context));
-  routes.addAll(ReportingScreens.getRoutes(context));
+  routes.addAll(OrdersManagementScreens.getRoutes());
+  routes.addAll(DriverAssignmentScreens.getRoutes());
+  routes.addAll(RouteManagementScreens.getRoutes());
+  routes.addAll(PricingPolicyScreens.getRoutes());
+  routes.addAll(ReportingScreens.getRoutes());
   
   return routes;
 }

@@ -312,23 +312,65 @@ const getOrderDetails = async (req, res) => {
 // US-17: Get shipper location for customer tracking
 const getShipperLocation = async (req, res) => {
   try {
-    const { id } = req.params;
+    let { orderId } = req.params;
     const userId = req.user.id;
+
+    // Ensure orderId is an integer
+    orderId = parseInt(orderId);
+    if (isNaN(orderId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'orderId phải là số hợp lệ'
+      });
+    }
+
+    console.log('📍 getShipperLocation called - orderId:', orderId, '(type:', typeof orderId, ')', 'userId:', userId);
 
     // Verify order belongs to customer
     const orderResult = await pool.query(
-      'SELECT id FROM orders WHERE id = $1 AND user_id = $2',
-      [id, userId]
+      'SELECT id, shipper_id FROM orders WHERE id = $1 AND user_id = $2',
+      [orderId, userId]
     );
 
     if (orderResult.rows.length === 0) {
+      // Check if order exists but belongs to different user
+      const orderExistsResult = await pool.query(
+        'SELECT id, user_id, shipper_id FROM orders WHERE id = $1',
+        [orderId]
+      );
+      
+      if (orderExistsResult.rows.length > 0) {
+        const existingOrder = orderExistsResult.rows[0];
+        console.log('❌ Order exists but belongs to different user');
+        console.log('   Order user_id:', existingOrder.user_id);
+        console.log('   Requesting user_id:', userId);
+        return res.status(403).json({
+          status: 'error',
+          message: 'Bạn không có quyền truy cập đơn hàng này. Đơn hàng thuộc về user khác.'
+        });
+      } else {
+        console.log('❌ Order not found');
+        return res.status(404).json({
+          status: 'error',
+          message: 'Không tìm thấy đơn hàng'
+        });
+      }
+    }
+
+    const order = orderResult.rows[0];
+    console.log('✅ Order found - orderId:', order.id, 'shipper_id:', order.shipper_id);
+
+    // Check if order has shipper assigned
+    if (!order.shipper_id) {
+      console.log('ℹ️ Order chưa có shipper được phân công');
       return res.status(404).json({
         status: 'error',
-        message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập'
+        message: 'Đơn hàng chưa có shipper được phân công'
       });
     }
 
     // Get latest shipper location check-in
+    console.log('📍 Querying shipper_locations for order_id:', orderId);
     const locationResult = await pool.query(
       `SELECT 
         sl.id,
@@ -336,6 +378,7 @@ const getShipperLocation = async (req, res) => {
         sl.longitude,
         sl.address,
         sl.created_at,
+        sl.shipper_id,
         u.full_name as shipper_name,
         u.phone as shipper_phone
        FROM shipper_locations sl
@@ -343,10 +386,26 @@ const getShipperLocation = async (req, res) => {
        WHERE sl.order_id = $1
        ORDER BY sl.created_at DESC
        LIMIT 1`,
-      [id]
+      [orderId]
     );
 
+    console.log('📍 Location query result count:', locationResult.rows.length);
+    if (locationResult.rows.length > 0) {
+      console.log('📍 Found location:', JSON.stringify(locationResult.rows[0], null, 2));
+    } else {
+      // Debug: Check if there are any locations for this order at all
+      const allLocationsResult = await pool.query(
+        'SELECT id, order_id, shipper_id, created_at FROM shipper_locations WHERE order_id = $1 ORDER BY created_at DESC',
+        [orderId]
+      );
+      console.log('📍 All locations for this order:', allLocationsResult.rows.length);
+      if (allLocationsResult.rows.length > 0) {
+        console.log('📍 Locations found:', JSON.stringify(allLocationsResult.rows, null, 2));
+      }
+    }
+
     if (locationResult.rows.length === 0) {
+      console.log('ℹ️ No location found for order');
       return res.status(404).json({
         status: 'error',
         message: 'Shipper chưa check-in vị trí'
@@ -354,6 +413,7 @@ const getShipperLocation = async (req, res) => {
     }
 
     const location = locationResult.rows[0];
+    console.log('✅ Location found - id:', location.id, 'lat:', location.latitude, 'lng:', location.longitude);
 
     res.json({
       status: 'success',

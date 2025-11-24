@@ -361,7 +361,16 @@ const checkInLocation = async (req, res) => {
   const client = await pool.connect();
   try {
     const shipperId = req.user.id;
-    const { order_id, lat, long } = req.body;
+    let { order_id, lat, long } = req.body;
+    
+    // Ensure order_id is an integer
+    order_id = parseInt(order_id);
+    if (isNaN(order_id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'order_id phải là số',
+      });
+    }
 
     // Validation
     if (!order_id || lat === undefined || long === undefined) {
@@ -410,14 +419,42 @@ const checkInLocation = async (req, res) => {
     }
 
     // Insert location check-in
+    console.log('📍 [CHECK-IN] Starting location check-in...');
+    console.log('   shipperId:', shipperId);
+    console.log('   order_id:', order_id, '(type:', typeof order_id, ')');
+    console.log('   lat:', lat, 'long:', long);
+    console.log('   Order info:', {
+      id: order.id,
+      order_number: order.order_number,
+      shipper_id: order.shipper_id
+    });
+    
     const locationResult = await client.query(
       `
         INSERT INTO shipper_locations (shipper_id, order_id, latitude, longitude)
         VALUES ($1, $2, $3, $4)
-        RETURNING id, created_at
+        RETURNING id, order_id, shipper_id, latitude, longitude, created_at
       `,
       [shipperId, order_id, lat, long],
     );
+
+    const insertedLocation = locationResult.rows[0];
+    console.log('✅ [CHECK-IN] Location inserted successfully!');
+    console.log('   Location ID:', insertedLocation.id);
+    console.log('   Order ID:', insertedLocation.order_id);
+    console.log('   Shipper ID:', insertedLocation.shipper_id);
+    console.log('   Coordinates:', insertedLocation.latitude, ',', insertedLocation.longitude);
+    console.log('   Created at:', insertedLocation.created_at);
+    
+    // Verify the insert by querying it back
+    const verifyResult = await client.query(
+      'SELECT * FROM shipper_locations WHERE id = $1',
+      [insertedLocation.id]
+    );
+    console.log('✅ [CHECK-IN] Verification query result:', verifyResult.rows.length > 0 ? 'FOUND' : 'NOT FOUND');
+    if (verifyResult.rows.length > 0) {
+      console.log('   Verified location:', JSON.stringify(verifyResult.rows[0], null, 2));
+    }
 
     await client.query('COMMIT');
 
