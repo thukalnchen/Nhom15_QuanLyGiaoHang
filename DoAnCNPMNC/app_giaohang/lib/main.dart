@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/order_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_shipper_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/orders/order_detail_screen.dart';
+import 'screens/notifications/notification_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'utils/constants.dart';
 
@@ -28,6 +30,7 @@ class ShipperApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..loadSession()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         title: AppConfig.appName,
@@ -86,6 +89,7 @@ class ShipperApp extends StatelessWidget {
           RegisterShipperScreen.routeName: (_) => const RegisterShipperScreen(),
           HomeScreen.routeName: (_) => const HomeScreen(),
           OrderDetailScreen.routeName: (_) => const OrderDetailScreen(),
+          NotificationScreen.routeName: (_) => const NotificationScreen(),
         },
       ),
     );

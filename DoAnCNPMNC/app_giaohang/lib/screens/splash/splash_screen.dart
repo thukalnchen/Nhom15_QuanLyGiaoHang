@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../auth/login_screen.dart';
 import '../home/home_screen.dart';
 import '../../utils/constants.dart';
@@ -29,6 +30,14 @@ class _SplashScreenState extends State<SplashScreen> {
     await auth.loadSession();
     if (!mounted) return;
     if (auth.isAuthenticated) {
+      // Initialize push notifications
+      try {
+        final notificationProvider = context.read<NotificationProvider>();
+        await notificationProvider.initializeNotifications();
+        print('✅ Push notifications initialized');
+      } catch (e) {
+        print('⚠️ Failed to initialize notifications: $e');
+      }
       Navigator.pushReplacementNamed(context, HomeScreen.routeName);
     } else {
       Navigator.pushReplacementNamed(context, LoginScreen.routeName);

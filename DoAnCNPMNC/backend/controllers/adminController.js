@@ -1,6 +1,7 @@
 const Joi = require('joi');
 const { pool } = require('../config/database');
 const { sendNotificationToUser } = require('./notificationController');
+const { logActivity } = require('../middleware/logging');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
@@ -351,6 +352,12 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
+    // Log activity
+    await logActivity(req, 'UPDATE_ORDER_STATUS', 'order', orderId, {
+      old_status: result.rows[0].status,
+      new_status: status
+    });
+
     // Emit socket event for real-time update
     const io = req.app.get('io');
     if (io) {
@@ -558,15 +565,20 @@ const getActiveDeliveries = async (req, res) => {
   }
 };
 
-// Get all users
+// Get all users with filters, search, and pagination
 const getAllUsers = async (req, res) => {
   try {
-    const { limit = 50, offset = 0 } = req.query;
+    const { 
+      role,           // Filter by role: customer, shipper, intake_staff, admin
+      search,         // Search by name or phone
+      limit = 50, 
+      offset = 0 
+    } = req.query;
 
-    const result = await pool.query(
-      `SELECT 
+    let query = `
+      SELECT 
         id,
-        COALESCE(full_name, '') AS name,
+        full_name,
         email,
         phone,
         address,
@@ -575,13 +587,64 @@ const getAllUsers = async (req, res) => {
         role,
         status
       FROM users
-      ORDER BY created_at DESC
-      LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
+      WHERE 1=1
+    `;
+    
+    const conditions = [];
+    const params = [];
+    let paramCount = 1;
 
-    // Get total count
-    const countResult = await pool.query('SELECT COUNT(*) as count FROM users');
+    // Filter by role
+    if (role) {
+      conditions.push(`role = $${paramCount}`);
+      params.push(role);
+      paramCount++;
+    }
+
+    // Search by name or phone
+    if (search) {
+      conditions.push(`(
+        full_name ILIKE $${paramCount} OR
+        phone ILIKE $${paramCount} OR
+        email ILIKE $${paramCount}
+      )`);
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    if (conditions.length > 0) {
+      query += ' AND ' + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    params.push(parsedLimit, parsedOffset);
+
+    const result = await pool.query(query, params);
+
+    // Get total count with same filters
+    let countQuery = 'SELECT COUNT(*) as count FROM users WHERE 1=1';
+    const countParams = [];
+    let countParamCount = 1;
+
+    if (role) {
+      countQuery += ` AND role = $${countParamCount}`;
+      countParams.push(role);
+      countParamCount++;
+    }
+
+    if (search) {
+      countQuery += ` AND (
+        full_name ILIKE $${countParamCount} OR
+        phone ILIKE $${countParamCount} OR
+        email ILIKE $${countParamCount}
+      )`;
+      countParams.push(`%${search}%`);
+      countParamCount++;
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
     const totalCount = parseInt(countResult.rows[0].count);
 
     res.json({
@@ -590,8 +653,9 @@ const getAllUsers = async (req, res) => {
         users: result.rows,
         pagination: {
           total: totalCount,
-          limit: parseInt(limit),
-          offset: parseInt(offset)
+          limit: parsedLimit,
+          offset: parsedOffset,
+          pages: Math.ceil(totalCount / parsedLimit)
         }
       }
     });
@@ -1248,6 +1312,312 @@ const confirmCodReceived = async (req, res) => {
   }
 };
 
+// Create internal user account (Shipper/Intake Staff) - Admin only
+const createUser = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const schema = Joi.object({
+      email: Joi.string().email().required(),
+      password: Joi.string().min(6).required(),
+      full_name: Joi.string().min(2).required(),
+      phone: Joi.string().pattern(/^[0-9]{9,11}$/).optional(),
+      address: Joi.string().optional(),
+      role: Joi.string().valid('shipper', 'intake_staff').required() // Admin cannot create admin accounts
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    const { email, password, full_name, phone, address, role } = value;
+
+    await client.query('BEGIN');
+
+    // Check if user already exists
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        status: 'error',
+        message: 'Email đã được sử dụng'
+      });
+    }
+
+    // Hash password
+    const bcrypt = require('bcryptjs');
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user with status 'active' for internal accounts
+    const result = await client.query(
+      `INSERT INTO users (email, password, full_name, phone, address, role, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active')
+       RETURNING id, email, full_name, phone, address, role, status, created_at`,
+      [email, hashedPassword, full_name, phone || null, address || null, role]
+    );
+
+    // If shipper, create shipper profile
+    if (role === 'shipper') {
+      await client.query(
+        `INSERT INTO shipper_profiles (user_id, approved_at)
+         VALUES ($1, NOW())
+         ON CONFLICT (user_id) DO NOTHING`,
+        [result.rows[0].id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Log activity
+    await logActivity(req, 'CREATE_USER', 'user', result.rows[0].id, {
+      email: email,
+      role: role,
+      created_by: req.user.id
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: `Tạo tài khoản ${role === 'shipper' ? 'shipper' : 'nhân viên kho'} thành công`,
+      data: {
+        user: result.rows[0]
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating user:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tạo tài khoản',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// Update user status (Lock/Unlock account)
+const updateUserStatus = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const schema = Joi.object({
+      status: Joi.string().valid('active', 'suspended').required()
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    const { status } = value;
+
+    await client.query('BEGIN');
+
+    // Check if user exists and is not admin
+    const userResult = await client.query(
+      'SELECT id, email, full_name, role FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Prevent locking/unlocking admin accounts
+    if (user.role === 'admin') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        status: 'error',
+        message: 'Không thể khóa/mở khóa tài khoản admin'
+      });
+    }
+
+    // Update status
+    const result = await client.query(
+      `UPDATE users 
+       SET status = $1, updated_at = NOW() 
+       WHERE id = $2 
+       RETURNING id, email, full_name, role, status`,
+      [status, id]
+    );
+
+    await client.query('COMMIT');
+
+    // Log activity
+    await logActivity(req, 'UPDATE_USER_STATUS', 'user', id, {
+      user_email: user.email,
+      user_name: user.full_name,
+      old_status: user.status,
+      new_status: status
+    });
+
+    res.json({
+      status: 'success',
+      message: status === 'suspended' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating user status:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi cập nhật trạng thái người dùng',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// Get system logs (US-28)
+const getSystemLogs = async (req, res) => {
+  try {
+    const { 
+      action,           // Filter by action
+      target_type,     // Filter by target type
+      user_id,         // Filter by user
+      limit = 20,       // Default limit 20 as per requirements
+      offset = 0 
+    } = req.query;
+
+    let query = `
+      SELECT 
+        sl.id,
+        sl.user_id,
+        sl.action,
+        sl.target_type,
+        sl.target_id,
+        sl.ip_address,
+        sl.user_agent,
+        sl.details,
+        sl.created_at,
+        u.full_name as user_name,
+        u.email as user_email,
+        u.role as user_role
+      FROM system_logs sl
+      LEFT JOIN users u ON sl.user_id = u.id
+      WHERE 1=1
+    `;
+    
+    const conditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    // Filter by action
+    if (action) {
+      conditions.push(`sl.action = $${paramCount}`);
+      params.push(action);
+      paramCount++;
+    }
+
+    // Filter by target type
+    if (target_type) {
+      conditions.push(`sl.target_type = $${paramCount}`);
+      params.push(target_type);
+      paramCount++;
+    }
+
+    // Filter by user
+    if (user_id) {
+      conditions.push(`sl.user_id = $${paramCount}`);
+      params.push(user_id);
+      paramCount++;
+    }
+
+    if (conditions.length > 0) {
+      query += ' AND ' + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY sl.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    params.push(parsedLimit, parsedOffset);
+
+    const result = await pool.query(query, params);
+
+    // Get total count with same filters
+    let countQuery = 'SELECT COUNT(*) as count FROM system_logs WHERE 1=1';
+    const countParams = [];
+    let countParamCount = 1;
+
+    if (action) {
+      countQuery += ` AND action = $${countParamCount}`;
+      countParams.push(action);
+      countParamCount++;
+    }
+
+    if (target_type) {
+      countQuery += ` AND target_type = $${countParamCount}`;
+      countParams.push(target_type);
+      countParamCount++;
+    }
+
+    if (user_id) {
+      countQuery += ` AND user_id = $${countParamCount}`;
+      countParams.push(user_id);
+      countParamCount++;
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // Format logs
+    const formattedLogs = result.rows.map(row => ({
+      id: row.id,
+      user: row.user_id ? {
+        id: row.user_id,
+        name: row.user_name,
+        email: row.user_email,
+        role: row.user_role
+      } : null,
+      action: row.action,
+      target_type: row.target_type,
+      target_id: row.target_id,
+      ip_address: row.ip_address,
+      user_agent: row.user_agent,
+      details: typeof row.details === 'string' ? JSON.parse(row.details) : row.details,
+      created_at: row.created_at
+    }));
+
+    res.json({
+      status: 'success',
+      data: {
+        logs: formattedLogs,
+        pagination: {
+          total: totalCount,
+          limit: parsedLimit,
+          offset: parsedOffset,
+          pages: Math.ceil(totalCount / parsedLimit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting system logs:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải nhật ký hệ thống',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -1256,6 +1626,8 @@ module.exports = {
   updateOrder,
   getActiveDeliveries,
   getAllUsers,
+  createUser,
+  updateUserStatus,
   getAnalytics,
   getShippers,
   getShipperById,
@@ -1263,5 +1635,6 @@ module.exports = {
   getAvailableShippers,
   assignOrders,
   confirmCodCollection,
-  confirmCodReceived
+  confirmCodReceived,
+  getSystemLogs
 };
