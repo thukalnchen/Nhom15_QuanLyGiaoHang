@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:provider/provider.dart';
 import '../../../utils/constants.dart';
+import '../../../providers/order_provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../tracking/order_tracking_screen.dart';
 
-class OrderDetailsScreen extends StatelessWidget {
+class OrderDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> order;
 
   const OrderDetailsScreen({
@@ -10,9 +14,53 @@ class OrderDetailsScreen extends StatelessWidget {
     required this.order,
   });
 
+  @override
+  State<OrderDetailsScreen> createState() => _OrderDetailsScreenState();
+}
+
+class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
+  Map<String, dynamic>? _orderDetails;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderDetails = widget.order;
+    _loadOrderDetails();
+  }
+
+  Future<void> _loadOrderDetails() async {
+    final authProvider = context.read<AuthProvider>();
+    final orderProvider = context.read<OrderProvider>();
+    final token = authProvider.token;
+    
+    if (token == null || _orderDetails == null) return;
+
+    setState(() => _isLoading = true);
+
+    final orderId = _orderDetails!['id'];
+    if (orderId != null) {
+      final success = await orderProvider.getOrderDetails(
+        int.parse(orderId.toString()),
+        token,
+      );
+
+      if (success && orderProvider.currentOrder != null) {
+        setState(() {
+          _orderDetails = orderProvider.currentOrder;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final order = _orderDetails ?? widget.order;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -21,92 +69,102 @@ class OrderDetailsScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.dark),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status Card
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppUtils.getStatusColor(order['status']),
-                    AppUtils.getStatusColor(order['status']).withOpacity(0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppUtils.getStatusColor(order['status']).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      shape: BoxShape.circle,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadOrderDetails,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Status Card
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppUtils.getStatusColor(order['status']),
+                            AppUtils.getStatusColor(order['status']).withOpacity(0.7),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppUtils.getStatusColor(order['status']).withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.3),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _getStatusIcon(order['status']),
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            AppUtils.getStatusText(order['status']),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _getStatusDescription(order['status']),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Icon(
-                      _getStatusIcon(order['status']),
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    AppUtils.getStatusText(order['status']),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getStatusDescription(order['status']),
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
 
-            // Order Info Section
-            _buildSection(
-              title: 'Thông tin đơn hàng',
-              icon: Icons.receipt_long,
-              child: Column(
-                children: [
-                  _buildInfoRow('Mã đơn hàng', order['order_number'] ?? 'N/A'),
-                  _buildInfoRow(
-                    'Thời gian đặt',
-                    AppUtils.formatDateTime(DateTime.parse(order['created_at'])),
-                  ),
-                  _buildInfoRow('Loại xe', _getVehicleText(order['vehicle_type'])),
-                  if (order['distance'] != null)
-                    _buildInfoRow('Khoảng cách', '${order['distance']} km'),
-                  if (order['duration'] != null)
-                    _buildInfoRow('Thời gian dự kiến', order['duration']),
-                ],
-              ),
-            ),
+                    // Status Timeline Section
+                    if (order['status_history'] != null && 
+                        (order['status_history'] as List).isNotEmpty)
+                      _buildStatusTimeline(order['status_history'] as List),
 
-            // QR Code Section - For warehouse staff to scan
-            _buildSection(
+                    // Order Info Section
+                    _buildSection(
+                      title: 'Thông tin đơn hàng',
+                      icon: Icons.receipt_long,
+                      child: Column(
+                        children: [
+                          _buildInfoRow('Mã đơn hàng', order['order_number'] ?? 'N/A'),
+                          _buildInfoRow(
+                            'Thời gian đặt',
+                            AppUtils.formatDateTime(DateTime.parse(order['created_at'])),
+                          ),
+                          _buildInfoRow('Loại xe', _getVehicleText(order['vehicle_type'])),
+                          if (order['distance'] != null)
+                            _buildInfoRow('Khoảng cách', '${order['distance']} km'),
+                          if (order['duration'] != null)
+                            _buildInfoRow('Thời gian dự kiến', order['duration']),
+                        ],
+                      ),
+                    ),
+
+                    // QR Code Section - For warehouse staff to scan
+                    _buildSection(
               title: 'Mã QR đơn hàng',
               icon: Icons.qr_code_2,
               child: Column(
@@ -157,8 +215,8 @@ class OrderDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            // Route Section
-            _buildSection(
+                    // Route Section
+                    _buildSection(
               title: 'Tuyến đường',
               icon: Icons.route,
               child: Column(
@@ -181,9 +239,9 @@ class OrderDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            // Recipient Info
-            if (order['recipient_name'] != null || order['recipient_phone'] != null)
-              _buildSection(
+                    // Recipient Info
+                    if (order['recipient_name'] != null || order['recipient_phone'] != null)
+                      _buildSection(
                 title: 'Thông tin người nhận',
                 icon: Icons.person_outline,
                 child: Column(
@@ -196,9 +254,9 @@ class OrderDetailsScreen extends StatelessWidget {
                 ),
               ),
 
-            // Services Section
-            if (order['services'] != null && (order['services'] as List).isNotEmpty)
-              _buildSection(
+                    // Services Section
+                    if (order['services'] != null && (order['services'] as List).isNotEmpty)
+                      _buildSection(
                 title: 'Dịch vụ thêm',
                 icon: Icons.miscellaneous_services,
                 child: Wrap(
@@ -228,9 +286,9 @@ class OrderDetailsScreen extends StatelessWidget {
                 ),
               ),
 
-            // Notes Section
-            if (order['notes'] != null && order['notes'].toString().isNotEmpty)
-              _buildSection(
+                    // Notes Section
+                    if (order['notes'] != null && order['notes'].toString().isNotEmpty)
+                      _buildSection(
                 title: 'Ghi chú',
                 icon: Icons.note_alt_outlined,
                 child: Container(
@@ -251,8 +309,8 @@ class OrderDetailsScreen extends StatelessWidget {
                 ),
               ),
 
-            // Price Breakdown Section
-            _buildSection(
+                    // Price Breakdown Section
+                    _buildSection(
               title: 'Chi tiết giá',
               icon: Icons.payments_outlined,
               child: Column(
@@ -283,9 +341,9 @@ class OrderDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            // Driver Info (if assigned)
-            if (order['driver_name'] != null)
-              _buildSection(
+                    // Driver Info (if assigned)
+                    if (order['driver_name'] != null)
+                      _buildSection(
                 title: 'Thông tin tài xế',
                 icon: Icons.person,
                 child: Row(
@@ -339,13 +397,14 @@ class OrderDetailsScreen extends StatelessWidget {
                 ),
               ),
 
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+            ),
       
       // Bottom Action Buttons
-      bottomNavigationBar: Container(
+      bottomNavigationBar: _isLoading ? null : Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -360,7 +419,8 @@ class OrderDetailsScreen extends StatelessWidget {
         child: SafeArea(
           child: Row(
             children: [
-              if (order['status'] == AppConstants.statusPending) ...[
+              if ((order['status'] == AppConstants.statusPending || 
+                   order['status'] == 'pending')) ...[
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
@@ -387,7 +447,12 @@ class OrderDetailsScreen extends StatelessWidget {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: Track order
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OrderTrackingScreen(order: order),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -613,6 +678,305 @@ class OrderDetailsScreen extends StatelessWidget {
         return '🚚 Van 1000kg';
       default:
         return 'Xe giao hàng';
+    }
+  }
+
+  Widget _buildStatusTimeline(List<dynamic> statusHistory) {
+    if (statusHistory.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Sort by created_at to ensure chronological order
+    final sortedHistory = List<Map<String, dynamic>>.from(statusHistory)
+      ..sort((a, b) {
+        final dateA = DateTime.parse(a['created_at'] ?? '');
+        final dateB = DateTime.parse(b['created_at'] ?? '');
+        return dateA.compareTo(dateB);
+      });
+
+    return _buildSection(
+      title: 'Lịch sử trạng thái',
+      icon: Icons.timeline,
+      child: Column(
+        children: List.generate(sortedHistory.length, (index) {
+          final historyItem = sortedHistory[index];
+          final isLast = index == sortedHistory.length - 1;
+          final status = historyItem['status']?.toString() ?? '';
+          final notes = historyItem['notes']?.toString();
+          final reason = historyItem['reason']?.toString();
+          final createdAt = historyItem['created_at']?.toString();
+          
+          DateTime? dateTime;
+          if (createdAt != null) {
+            try {
+              dateTime = DateTime.parse(createdAt);
+            } catch (e) {
+              dateTime = null;
+            }
+          }
+
+          return _buildTimelineItem(
+            status: status,
+            notes: notes,
+            reason: reason,
+            dateTime: dateTime,
+            isLast: isLast,
+            isCompleted: true, // All past statuses are completed
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem({
+    required String status,
+    String? notes,
+    String? reason,
+    DateTime? dateTime,
+    required bool isLast,
+    required bool isCompleted,
+  }) {
+    final statusText = _getStatusDisplayText(status);
+    final statusColor = _getStatusColor(status);
+    final statusIcon = _getStatusIconForTimeline(status);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline indicator
+        Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: statusColor,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                statusIcon,
+                color: statusColor,
+                size: 20,
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 60,
+                color: AppColors.lightGrey,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        // Content
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    if (dateTime != null)
+                      Text(
+                        _formatTime(dateTime),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.grey,
+                        ),
+                      ),
+                  ],
+                ),
+                if (dateTime != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatDate(dateTime),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.grey,
+                    ),
+                  ),
+                ],
+                if (notes != null && notes.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightGrey.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: AppColors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            notes,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.dark,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (reason != null && reason.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.warning.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 16,
+                          color: AppColors.warning,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Lý do: $reason',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.warning,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'Chờ xác nhận';
+      case 'confirmed':
+        return 'Đã xác nhận';
+      case 'warehouse_received':
+        return 'Đã nhận vào kho';
+      case 'preparing':
+        return 'Đang chuẩn bị';
+      case 'ready_for_pickup':
+        return 'Sẵn sàng lấy hàng';
+      case 'picked_up':
+        return 'Đã lấy hàng';
+      case 'in_transit':
+        return 'Đang giao hàng';
+      case 'delivered':
+        return 'Đã giao hàng';
+      case 'cancelled':
+        return 'Đã hủy';
+      case 'returned':
+        return 'Đã trả lại';
+      default:
+        return status;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return AppColors.warning;
+      case 'confirmed':
+      case 'warehouse_received':
+      case 'preparing':
+        return AppColors.info;
+      case 'ready_for_pickup':
+      case 'picked_up':
+        return AppColors.primary;
+      case 'in_transit':
+        return AppColors.primaryDark;
+      case 'delivered':
+        return AppColors.success;
+      case 'cancelled':
+      case 'returned':
+        return AppColors.error;
+      default:
+        return AppColors.grey;
+    }
+  }
+
+  IconData _getStatusIconForTimeline(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Icons.access_time;
+      case 'confirmed':
+        return Icons.check_circle_outline;
+      case 'warehouse_received':
+        return Icons.warehouse;
+      case 'preparing':
+        return Icons.build_circle_outlined;
+      case 'ready_for_pickup':
+        return Icons.shopping_bag_outlined;
+      case 'picked_up':
+        return Icons.inventory_2_outlined;
+      case 'in_transit':
+        return Icons.local_shipping;
+      case 'delivered':
+        return Icons.check_circle;
+      case 'cancelled':
+        return Icons.cancel;
+      case 'returned':
+        return Icons.undo;
+      default:
+        return Icons.info;
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDate(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    
+    if (date == today) {
+      return 'Hôm nay';
+    } else if (date == today.subtract(const Duration(days: 1))) {
+      return 'Hôm qua';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
   }
 

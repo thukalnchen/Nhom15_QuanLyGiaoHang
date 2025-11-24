@@ -2057,23 +2057,85 @@ async function showDispatchModal() {
         showLoading();
         const response = await apiCall('/admin/shippers/available');
         
-        if (response.status === 'success') {
-            const select = document.getElementById('dispatch-shipper-select');
-            select.innerHTML = '<option value="">-- Chọn shipper --</option>';
-            
-            response.data.forEach(shipper => {
-                const option = document.createElement('option');
-                option.value = shipper.id;
-                option.textContent = `${shipper.full_name} (${shipper.vehicle_type || 'N/A'}) - ${shipper.active_orders_count || 0} đơn đang giao`;
-                select.appendChild(option);
-            });
-            
-            updateSelectedOrdersList();
-            const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
-            modal.show();
+        console.log('Response from /admin/shippers/available:', response);
+        
+        const select = document.getElementById('dispatch-shipper-select');
+        if (!select) {
+            console.error('Không tìm thấy element dispatch-shipper-select');
+            showNotification('Lỗi: Không tìm thấy dropdown shipper', 'error');
+            return;
         }
+        
+        // Clear existing options
+        select.innerHTML = '<option value="">-- Chọn shipper --</option>';
+        
+        if (response && response.status === 'success' && Array.isArray(response.data)) {
+            if (response.data.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = '-- Không có shipper nào khả dụng --';
+                option.disabled = true;
+                select.appendChild(option);
+                showNotification('Hiện tại không có shipper nào khả dụng. Vui lòng tạo shipper mới.', 'warning');
+            } else {
+                response.data.forEach(shipper => {
+                    const option = document.createElement('option');
+                    const activeOrders = shipper.active_orders_count || 0;
+                    const status = shipper.status || 'unknown';
+                    
+                    // Status indicator
+                    let statusIndicator = '';
+                    if (status === 'approved') {
+                        statusIndicator = '✓';
+                    } else if (status === 'active') {
+                        statusIndicator = '●';
+                    } else {
+                        statusIndicator = '○';
+                    }
+                    
+                    // Load indicator
+                    const loadText = activeOrders >= 3 ? ' (Quá tải)' : activeOrders >= 2 ? ' (Gần đầy)' : '';
+                    
+                    option.value = shipper.id;
+                    option.textContent = `${statusIndicator} ${shipper.full_name} (${shipper.vehicle_type || 'N/A'}) - ${activeOrders} đơn đang giao${loadText}`;
+                    
+                    // Highlight based on status and load
+                    if (status !== 'approved' && status !== 'active') {
+                        option.style.color = '#6c757d'; // Gray for other statuses
+                    } else if (activeOrders >= 3) {
+                        option.style.color = '#dc3545'; // Red for overloaded
+                    } else if (activeOrders >= 2) {
+                        option.style.color = '#ffc107'; // Yellow/Orange for near full
+                    }
+                    
+                    select.appendChild(option);
+                });
+            }
+        } else {
+            console.error('Invalid response format:', response);
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '-- Lỗi tải danh sách shipper --';
+            option.disabled = true;
+            select.appendChild(option);
+            showNotification('Không thể tải danh sách shipper. Vui lòng thử lại.', 'error');
+        }
+        
+        updateSelectedOrdersList();
+        const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
+        modal.show();
     } catch (error) {
-        showNotification('Không thể tải danh sách shipper', 'error');
+        console.error('Error loading shippers:', error);
+        const select = document.getElementById('dispatch-shipper-select');
+        if (select) {
+            select.innerHTML = '<option value="">-- Lỗi tải danh sách shipper --</option>';
+        }
+        showNotification(error.message || 'Không thể tải danh sách shipper', 'error');
+        
+        // Still show modal so user knows what happened
+        updateSelectedOrdersList();
+        const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
+        modal.show();
     } finally {
         hideLoading();
     }

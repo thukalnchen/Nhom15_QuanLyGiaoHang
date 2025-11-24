@@ -11,7 +11,7 @@ class OrdersManagementScreens {
   static const String updateOrderDetailsScreen = 'update_order_details';
   static const String orderStatisticsScreen = 'order_statistics';
 
-  static Map<String, WidgetBuilder> getRoutes(BuildContext context) {
+  static Map<String, WidgetBuilder> getRoutes() {
     return {
       ordersListScreen: (context) => const OrdersListScreen(),
       orderDetailsScreen: (context) => const OrderDetailsScreen(),
@@ -29,7 +29,7 @@ class DriverAssignmentScreens {
   static const String reassignDriverScreen = 'reassign_driver';
   static const String driverWorkloadScreen = 'driver_workload';
 
-  static Map<String, WidgetBuilder> getRoutes(BuildContext context) {
+  static Map<String, WidgetBuilder> getRoutes() {
     return {
       availableDriversScreen: (context) => const AvailableDriversScreen(),
       assignDriverScreen: (context) => const AssignDriverScreen(),
@@ -50,7 +50,7 @@ class RouteManagementScreens {
   static const String createRouteScreen = 'create_route';
   static const String updateRouteScreen = 'update_route';
 
-  static Map<String, WidgetBuilder> getRoutes(BuildContext context) {
+  static Map<String, WidgetBuilder> getRoutes() {
     return {
       zonesListScreen: (context) => const ZonesListScreen(),
       createZoneScreen: (context) => const CreateZoneScreen(),
@@ -75,7 +75,7 @@ class PricingPolicyScreens {
   static const String createDiscountScreen = 'create_discount';
   static const String validateDiscountScreen = 'validate_discount';
 
-  static Map<String, WidgetBuilder> getRoutes(BuildContext context) {
+  static Map<String, WidgetBuilder> getRoutes() {
     return {
       pricingTableScreen: (context) => const PricingTableScreen(),
       updatePricingScreen: (context) => const UpdatePricingScreen(),
@@ -97,7 +97,7 @@ class ReportingScreens {
   static const String customerAnalyticsScreen = 'customer_analytics';
   static const String dashboardScreen = 'dashboard';
 
-  static Map<String, WidgetBuilder> getRoutes(BuildContext context) {
+  static Map<String, WidgetBuilder> getRoutes() {
     return {
       revenueReportScreen: (context) => const RevenueReportScreen(),
       deliveryStatsScreen: (context) => const DeliveryStatsScreen(),

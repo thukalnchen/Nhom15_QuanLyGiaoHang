@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../providers/complaint_provider.dart';
+import '../../../providers/auth_provider.dart';
 
 class CreateComplaintScreen extends StatefulWidget {
   final int orderId;
@@ -105,15 +106,29 @@ class _CreateComplaintScreenState extends State<CreateComplaintScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final provider = Provider.of<ComplaintProvider>(context, listen: false);
+      final complaintProvider = Provider.of<ComplaintProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
-      final success = await provider.createComplaint(
+      final token = authProvider.token ?? '';
+      if (token.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Phiên đăng nhập đã hết hạn'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+      
+      final success = await complaintProvider.createComplaint(
         orderId: widget.orderId,
         complaintType: _selectedType,
         subject: _subjectController.text,
         description: _descriptionController.text,
         priority: _selectedPriority,
         evidenceImages: _selectedImages,
+        token: token,
       );
 
       if (success) {
@@ -127,7 +142,7 @@ class _CreateComplaintScreenState extends State<CreateComplaintScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(provider.errorMessage ?? 'Không thể gửi khiếu nại'),
+            content: Text(complaintProvider.errorMessage ?? 'Không thể gửi khiếu nại'),
             backgroundColor: Colors.red,
           ),
         );

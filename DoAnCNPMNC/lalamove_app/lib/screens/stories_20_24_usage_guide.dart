@@ -9,19 +9,19 @@ class ScreenManagementExample {
     final allRoutes = <String, WidgetBuilder>{};
     
     // Story #20: Orders Management
-    allRoutes.addAll(OrdersManagementScreens.getRoutes(null));
+    allRoutes.addAll(OrdersManagementScreens.getRoutes());
     
     // Story #21: Driver Assignment
-    allRoutes.addAll(DriverAssignmentScreens.getRoutes(null));
+    allRoutes.addAll(DriverAssignmentScreens.getRoutes());
     
     // Story #22: Route Management
-    allRoutes.addAll(RouteManagementScreens.getRoutes(null));
+    allRoutes.addAll(RouteManagementScreens.getRoutes());
     
     // Story #23: Pricing Policy
-    allRoutes.addAll(PricingPolicyScreens.getRoutes(null));
+    allRoutes.addAll(PricingPolicyScreens.getRoutes());
     
     // Story #24: Reporting
-    allRoutes.addAll(ReportingScreens.getRoutes(null));
+    allRoutes.addAll(ReportingScreens.getRoutes());
   }
 
   /// Example 2: Navigate to Orders List
@@ -53,11 +53,11 @@ class ScreenManagementExample {
     final routes = <String, WidgetBuilder>{};
     
     // Add all Stories #20-24 routes
-    routes.addAll(OrdersManagementScreens.getRoutes(null));
-    routes.addAll(DriverAssignmentScreens.getRoutes(null));
-    routes.addAll(RouteManagementScreens.getRoutes(null));
-    routes.addAll(PricingPolicyScreens.getRoutes(null));
-    routes.addAll(ReportingScreens.getRoutes(null));
+    routes.addAll(OrdersManagementScreens.getRoutes());
+    routes.addAll(DriverAssignmentScreens.getRoutes());
+    routes.addAll(RouteManagementScreens.getRoutes());
+    routes.addAll(PricingPolicyScreens.getRoutes());
+    routes.addAll(ReportingScreens.getRoutes());
     
     return routes;
   }

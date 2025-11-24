@@ -32,7 +32,7 @@ class NotificationProvider with ChangeNotifier {
       await _initializeLocalNotifications();
 
       // Request notification permissions
-      await _requestPermissions();
+      await requestPermissions();
 
       // Connect to Socket.IO
       await _connectSocket();
@@ -67,7 +67,7 @@ class NotificationProvider with ChangeNotifier {
     );
   }
 
-  Future<void> _requestPermissions() async {
+  Future<void> requestPermissions() async {
     // Request permissions for local notifications
     final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
