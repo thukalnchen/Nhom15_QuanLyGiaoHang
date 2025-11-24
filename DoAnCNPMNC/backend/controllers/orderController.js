@@ -18,8 +18,8 @@ const createOrderSchema = Joi.object({
   delivery_phone: Joi.string().optional(),
   notes: Joi.string().optional(),
   // Customer estimates (optional) - New fields
-  customer_estimated_size: Joi.string().valid('small', 'medium', 'large', 'extra_large').optional(),
-  customer_requested_vehicle: Joi.string().valid('bike', 'car', 'van', 'truck').optional()
+  customer_estimated_size: Joi.string().valid('30kg', '500kg', '750kg', '1000kg').optional(),
+  customer_requested_vehicle: Joi.string().valid('motorcycle', 'van_500', 'van_750', 'van_1000', 'bike', 'van', 'truck').optional()
 });
 
 // Create new order
@@ -61,6 +61,32 @@ const createOrder = async (req, res) => {
     );
     const userInfo = userResult.rows[0] || {};
 
+    // Map customer_estimated_size to vehicle_type
+    let vehicleType = 'motorcycle'; // default
+    
+    if (customer_requested_vehicle) {
+      // Map from frontend vehicle IDs to backend types
+      const vehicleMap = {
+        'motorcycle': 'motorcycle',
+        'van_500': 'van',
+        'van_750': 'van',
+        'van_1000': 'truck',
+        'bike': 'bike',
+        'van': 'van',
+        'truck': 'truck'
+      };
+      vehicleType = vehicleMap[customer_requested_vehicle] || 'motorcycle';
+    } else if (customer_estimated_size) {
+      // Fallback: map from size to type
+      const sizeMap = {
+        '30kg': 'motorcycle',
+        '500kg': 'van',
+        '750kg': 'van',
+        '1000kg': 'truck'
+      };
+      vehicleType = sizeMap[customer_estimated_size] || 'motorcycle';
+    }
+
     // Create order
     const result = await pool.query(
       `INSERT INTO orders (order_number, user_id, restaurant_name, items, total_amount, 
@@ -85,10 +111,10 @@ const createOrder = async (req, res) => {
         userInfo.full_name || 'N/A',  // sender_name (from user account)
         userInfo.phone || 'N/A',       // sender_phone (from user account)
         'Người nhận',                  // receiver_name (default, can be updated later)
-        delivery_phone || 'N/A',       // receiver_phone
+        delivery_phone || 'N/A',       // receiver_phone (using delivery_phone)
         restaurant_name,               // pickup_location (using restaurant_name as pickup)
         delivery_address,              // delivery_location
-        customer_requested_vehicle || 'bike' // vehicle_type
+        vehicleType                    // vehicle_type (mapped from size or requested vehicle)
       ]
     );
 

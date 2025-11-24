@@ -204,7 +204,7 @@ class AdminApiService {
   static Future<List<Map<String, dynamic>>> getZones(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/routes/zones'),
+        Uri.parse('$baseUrl/route-management/zones'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -222,10 +222,86 @@ class AdminApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> createZone(
+    String token,
+    Map<String, dynamic> zoneData,
+  ) async {
+    try {
+      print('Creating zone with data: $zoneData');
+      final response = await http.post(
+        Uri.parse('$baseUrl/route-management/zones'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(zoneData),
+      );
+
+      print('Create zone response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 201) {
+        return {'success': true};
+      } else {
+        final error = jsonDecode(response.body);
+        return {'success': false, 'message': error['message'] ?? 'Lỗi không xác định'};
+      }
+    } catch (e) {
+      print('Lỗi createZone: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateZone(
+    String token,
+    int zoneId,
+    Map<String, dynamic> zoneData,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/route-management/zones/$zoneId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(zoneData),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        final error = jsonDecode(response.body);
+        return {'success': false, 'message': error['message'] ?? 'Lỗi không xác định'};
+      }
+    } catch (e) {
+      print('Lỗi updateZone: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<bool> deleteZone(
+    String token,
+    int zoneId,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/route-management/zones/$zoneId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Lỗi deleteZone: $e');
+      return false;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getRoutes(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/routes/list'),
+        Uri.parse('$baseUrl/route-management/routes'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -243,6 +319,62 @@ class AdminApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> createRoute(
+    String token,
+    Map<String, dynamic> routeData,
+  ) async {
+    try {
+      print('Creating route with data: $routeData');
+      final response = await http.post(
+        Uri.parse('$baseUrl/route-management/routes'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(routeData),
+      );
+
+      print('Create route response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 201) {
+        return {'success': true};
+      } else {
+        final error = jsonDecode(response.body);
+        return {'success': false, 'message': error['message'] ?? 'Lỗi không xác định'};
+      }
+    } catch (e) {
+      print('Lỗi createRoute: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateRoute(
+    String token,
+    int routeId,
+    Map<String, dynamic> routeData,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/route-management/routes/$routeId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(routeData),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        final error = jsonDecode(response.body);
+        return {'success': false, 'message': error['message'] ?? 'Lỗi không xác định'};
+      }
+    } catch (e) {
+      print('Lỗi updateRoute: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   // ===== STORY #23: PRICING POLICY =====
 
   static Future<List<Map<String, dynamic>>> getPricingTables(
@@ -250,7 +382,7 @@ class AdminApiService {
   ) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/pricing/tables'),
+        Uri.parse('$baseUrl/pricing/pricing'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -265,6 +397,27 @@ class AdminApiService {
     } catch (e) {
       print('Lỗi getPricingTables: $e');
       return [];
+    }
+  }
+
+  static Future<bool> updatePricing(
+    String token,
+    Map<String, dynamic> pricingData,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/pricing/pricing'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(pricingData),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Lỗi updatePricing: $e');
+      return false;
     }
   }
 
@@ -289,6 +442,69 @@ class AdminApiService {
     }
   }
 
+  static Future<bool> createSurcharge(
+    String token,
+    Map<String, dynamic> surchargeData,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/pricing/surcharges'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(surchargeData),
+      );
+
+      return response.statusCode == 201;
+    } catch (e) {
+      print('Lỗi createSurcharge: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateSurcharge(
+    String token,
+    int surchargeId,
+    Map<String, dynamic> surchargeData,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/pricing/surcharges/$surchargeId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(surchargeData),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Lỗi updateSurcharge: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteSurcharge(
+    String token,
+    int surchargeId,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/pricing/surcharges/$surchargeId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Lỗi deleteSurcharge: $e');
+      return false;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getDiscounts(String token) async {
     try {
       final response = await http.get(
@@ -307,6 +523,69 @@ class AdminApiService {
     } catch (e) {
       print('Lỗi getDiscounts: $e');
       return [];
+    }
+  }
+
+  static Future<bool> createDiscount(
+    String token,
+    Map<String, dynamic> discountData,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/pricing/discounts'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(discountData),
+      );
+
+      return response.statusCode == 201;
+    } catch (e) {
+      print('Lỗi createDiscount: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateDiscount(
+    String token,
+    int discountId,
+    Map<String, dynamic> discountData,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/pricing/discounts/$discountId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(discountData),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Lỗi updateDiscount: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteDiscount(
+    String token,
+    int discountId,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/pricing/discounts/$discountId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Lỗi deleteDiscount: $e');
+      return false;
     }
   }
 

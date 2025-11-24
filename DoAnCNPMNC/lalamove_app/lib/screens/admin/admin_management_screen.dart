@@ -4,7 +4,6 @@ import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import 'story_20_orders_list.dart';
 import 'story_21_driver_assignment.dart';
-import 'story_22_route_management.dart';
 import 'story_23_pricing_policy.dart';
 import 'story_24_reporting.dart';
 
@@ -38,50 +37,40 @@ class AdminManagementScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Story #20: Orders Management
+            // Orders Management
             _buildManagementCard(
               title: 'Quản Lý Đơn Hàng',
-              subtitle: 'Story #20',
+              subtitle: 'Xem, cập nhật, quản lý tất cả đơn hàng',
               icon: Icons.shopping_cart,
               description: 'Xem, cập nhật, quản lý tất cả đơn hàng',
               onTap: () => _navigateToScreen(context, 'orders_management'),
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Story #21: Driver Assignment
+            // Driver Assignment
             _buildManagementCard(
               title: 'Gán Tài Xế',
-              subtitle: 'Story #21',
+              subtitle: 'Gán tài xế cho các đơn hàng',
               icon: Icons.person_add,
               description: 'Gán tài xế cho các đơn hàng',
               onTap: () => _navigateToScreen(context, 'driver_assignment'),
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Story #22: Route Management
-            _buildManagementCard(
-              title: 'Quản Lý Tuyến Đường',
-              subtitle: 'Story #22',
-              icon: Icons.map,
-              description: 'Quản lý khu vực và tuyến giao hàng',
-              onTap: () => _navigateToScreen(context, 'route_management'),
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // Story #23: Pricing Policy
+            // Pricing Policy
             _buildManagementCard(
               title: 'Chính Sách Giá',
-              subtitle: 'Story #23',
+              subtitle: 'Quản lý giá cả, phí phụ, và giảm giá',
               icon: Icons.attach_money,
               description: 'Quản lý giá cả, phí phụ, và giảm giá',
               onTap: () => _navigateToScreen(context, 'pricing_policy'),
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Story #24: Reporting
+            // Reporting
             _buildManagementCard(
               title: 'Báo Cáo',
-              subtitle: 'Story #24',
+              subtitle: 'Xem báo cáo doanh thu, hiệu suất, phân tích',
               icon: Icons.assessment,
               description: 'Xem báo cáo doanh thu, hiệu suất, phân tích',
               onTap: () => _navigateToScreen(context, 'reporting'),
@@ -272,9 +261,6 @@ class AdminManagementScreen extends StatelessWidget {
         break;
       case 'driver_assignment':
         screen = const DriverAssignmentScreen();
-        break;
-      case 'route_management':
-        screen = const RouteManagementScreen();
         break;
       case 'pricing_policy':
         screen = const PricingPolicyScreen();

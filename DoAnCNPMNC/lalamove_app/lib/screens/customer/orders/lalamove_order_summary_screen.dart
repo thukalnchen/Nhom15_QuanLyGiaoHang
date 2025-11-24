@@ -44,6 +44,15 @@ class _LalamoveOrderSummaryScreenState extends State<LalamoveOrderSummaryScreen>
     super.dispose();
   }
 
+  // Extract weight from maxWeight string (e.g., "Up to 30 kg" -> "30kg")
+  String _extractWeight(String maxWeight) {
+    if (maxWeight.contains('30')) return '30kg';
+    if (maxWeight.contains('500')) return '500kg';
+    if (maxWeight.contains('750')) return '750kg';
+    if (maxWeight.contains('1000')) return '1000kg';
+    return '30kg'; // default
+  }
+
   Future<void> _submitOrder() async {
     print('🔵 _submitOrder: Confirm Order clicked!');
     
@@ -84,6 +93,8 @@ class _LalamoveOrderSummaryScreenState extends State<LalamoveOrderSummaryScreen>
             ? 'Distance: ${widget.distanceData['distance']['text']}, Duration: ${widget.distanceData['duration']['text']}'
             : _notesController.text.trim(),
         token: authProvider.token,
+        customerRequestedVehicle: widget.vehicle.id, // Send vehicle ID
+        customerEstimatedSize: _extractWeight(widget.vehicle.maxWeight), // Extract weight
       );
 
       if (mounted) {

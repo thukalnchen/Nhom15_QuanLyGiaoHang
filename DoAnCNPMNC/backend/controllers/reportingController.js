@@ -20,21 +20,21 @@ const getRevenueReport = async (req, res) => {
 
     const monthQuery = `
       SELECT 
-        COUNT(*) as total_orders,
-        SUM(total_amount) as total_revenue
+        COUNT(CASE WHEN status = 'delivered' THEN 1 END) as total_orders,
+        SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END) as total_revenue
       FROM orders
       WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
     `;
 
     const yearQuery = `
       SELECT 
-        COUNT(*) as total_orders,
-        SUM(total_amount) as total_revenue
+        COUNT(CASE WHEN status = 'delivered' THEN 1 END) as total_orders,
+        SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END) as total_revenue
       FROM orders
       WHERE DATE_TRUNC('year', created_at) = DATE_TRUNC('year', CURRENT_DATE)
     `;
 
-    // Revenue by vehicle type
+    // Revenue by vehicle type (only delivered orders)
     const byVehicleQuery = `
       SELECT 
         COALESCE(vehicle_type, 'unknown') as vehicle_type,
@@ -42,6 +42,7 @@ const getRevenueReport = async (req, res) => {
         SUM(total_amount) as revenue
       FROM orders
       WHERE DATE(created_at) = CURRENT_DATE
+        AND status = 'delivered'
       GROUP BY vehicle_type
       ORDER BY revenue DESC
     `;
@@ -57,11 +58,11 @@ const getRevenueReport = async (req, res) => {
       status: 'success',
       data: {
         today: {
-          total_revenue: parseFloat(overall.rows[0]?.total_revenue || 0),
+          total_revenue: parseFloat(overall.rows[0]?.actual_revenue || 0),
           delivery_revenue: parseFloat(overall.rows[0]?.delivery_revenue || 0),
           actual_revenue: parseFloat(overall.rows[0]?.actual_revenue || 0),
           avg_order_value: parseFloat(overall.rows[0]?.avg_order_value || 0),
-          total_orders: parseInt(overall.rows[0]?.total_orders || 0),
+          total_orders: parseInt(overall.rows[0]?.delivered_orders || 0),
           delivered_orders: parseInt(overall.rows[0]?.delivered_orders || 0)
         },
         monthly: {
@@ -122,10 +123,10 @@ const getDeliveryStatistics = async (req, res) => {
           ELSE 'night'
         END
       ORDER BY 
-        CASE
-          WHEN EXTRACT(HOUR FROM created_at) BETWEEN 6 AND 11 THEN 1
-          WHEN EXTRACT(HOUR FROM created_at) BETWEEN 12 AND 17 THEN 2
-          WHEN EXTRACT(HOUR FROM created_at) BETWEEN 18 AND 23 THEN 3
+        CASE time_period
+          WHEN 'morning' THEN 1
+          WHEN 'afternoon' THEN 2
+          WHEN 'evening' THEN 3
           ELSE 4
         END
     `;
@@ -292,7 +293,7 @@ const getDashboardSummary = async (req, res) => {
         COUNT(*) as total_orders,
         COUNT(CASE WHEN status = 'delivered' THEN 1 END) as delivered_orders,
         COUNT(CASE WHEN status IN ('pending', 'confirmed', 'assigned', 'picked_up', 'in_delivery') THEN 1 END) as in_progress_orders,
-        SUM(total_amount) as total_revenue,
+        SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END) as total_revenue,
         ROUND(COUNT(CASE WHEN status = 'delivered' THEN 1 END)::numeric / NULLIF(COUNT(*), 0) * 100, 2) as success_rate
       FROM orders
       WHERE DATE(created_at) = CURRENT_DATE

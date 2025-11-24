@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -21,6 +22,8 @@ class _ReportingScreenState extends State<ReportingScreen> {
   Map<String, dynamic> _customerData = {};
   Map<String, dynamic> _dashboardData = {};
   bool _isLoading = false;
+  Timer? _autoRefreshTimer;
+  DateTime _lastUpdate = DateTime.now();
 
   final _numberFormat = NumberFormat('#,###', 'vi_VN');
   final _currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
@@ -29,6 +32,16 @@ class _ReportingScreenState extends State<ReportingScreen> {
   void initState() {
     super.initState();
     _loadReports();
+    // Auto refresh every 30 seconds
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _loadReports();
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadReports() async {
@@ -55,6 +68,7 @@ class _ReportingScreenState extends State<ReportingScreen> {
         _driverData = driver;
         _customerData = customer;
         _dashboardData = dashboard;
+        _lastUpdate = DateTime.now();
         _isLoading = false;
       });
     } catch (e) {
@@ -72,12 +86,22 @@ class _ReportingScreenState extends State<ReportingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Báo Cáo Thống Kê'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Báo Cáo Thống Kê'),
+            Text(
+              'Cập nhật: ${DateFormat('HH:mm:ss').format(_lastUpdate)}',
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadReports,
+            tooltip: 'Làm mới (tự động mỗi 30s)',
           ),
         ],
       ),
@@ -153,13 +177,24 @@ class _ReportingScreenState extends State<ReportingScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           
-          // Biểu đồ theo loại xe
-          if (byVehicle.isNotEmpty) ...[
-            const Text(
-              'Doanh Thu Theo Loại Xe',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: AppSpacing.md),
+          // Biểu đồ theo loại xe - luôn hiển thị
+          const Text(
+            'Doanh Thu Theo Loại Xe',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          
+          if (byVehicle.isEmpty)
+            Container(
+              height: 200,
+              alignment: Alignment.center,
+              child: const Text(
+                'Chưa có dữ liệu đơn hàng',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+            )
+          else ...[
+            // Pie Chart
             SizedBox(
               height: 200,
               child: PieChart(
@@ -170,6 +205,61 @@ class _ReportingScreenState extends State<ReportingScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: AppSpacing.lg),
+            
+            // Bar Chart - Doanh thu theo xe
+            const Text(
+              'Biểu Đồ Cột - Doanh Thu Theo Xe',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              height: 250,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: _getMaxRevenue(byVehicle) * 1.2,
+                  barGroups: _buildRevenueBarGroups(byVehicle),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() < byVehicle.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                _getVehicleLabel(byVehicle[value.toInt()]['type']),
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 60,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${(value / 1000).toStringAsFixed(0)}K',
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(show: true, drawVerticalLine: false),
+                ),
+              ),
+            ),
+            
             const SizedBox(height: AppSpacing.md),
             ...byVehicle.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -220,13 +310,23 @@ class _ReportingScreenState extends State<ReportingScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           
-          // Biểu đồ trạng thái đơn hàng
-          if (byStatus.isNotEmpty) ...[
-            const Text(
-              'Phân Bố Trạng Thái Đơn Hàng',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: AppSpacing.md),
+          // Biểu đồ trạng thái đơn hàng - luôn hiển thị
+          const Text(
+            'Phân Bố Trạng Thái Đơn Hàng',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          
+          if (byStatus.isEmpty)
+            Container(
+              height: 250,
+              alignment: Alignment.center,
+              child: const Text(
+                'Chưa có dữ liệu trạng thái đơn hàng',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+            )
+          else
             SizedBox(
               height: 250,
               child: BarChart(
@@ -265,7 +365,6 @@ class _ReportingScreenState extends State<ReportingScreen> {
                 ),
               ),
             ),
-          ],
           
           const SizedBox(height: AppSpacing.lg),
           
@@ -470,6 +569,61 @@ class _ReportingScreenState extends State<ReportingScreen> {
         ],
       );
     }).toList();
+  }
+
+  List<BarChartGroupData> _buildRevenueBarGroups(List<dynamic> data) {
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+    ];
+    
+    return data.asMap().entries.map((entry) {
+      final index = entry.key;
+      final item = entry.value as Map<String, dynamic>;
+      final revenueValue = item['revenue'];
+      double revenue = 0;
+      
+      if (revenueValue is num) {
+        revenue = revenueValue.toDouble();
+      } else if (revenueValue is String) {
+        revenue = double.tryParse(revenueValue) ?? 0;
+      }
+      
+      return BarChartGroupData(
+        x: index,
+        barRods: [
+          BarChartRodData(
+            toY: revenue,
+            color: colors[index % colors.length],
+            width: 24,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(6),
+              topRight: Radius.circular(6),
+            ),
+          ),
+        ],
+      );
+    }).toList();
+  }
+
+  double _getMaxRevenue(List<dynamic> data) {
+    double max = 0;
+    for (var item in data) {
+      final revenueValue = item['revenue'];
+      double revenue = 0;
+      
+      if (revenueValue is num) {
+        revenue = revenueValue.toDouble();
+      } else if (revenueValue is String) {
+        revenue = double.tryParse(revenueValue) ?? 0;
+      }
+      
+      if (revenue > max) max = revenue;
+    }
+    return max > 0 ? max : 100000;
   }
 
   Widget _buildStatCard({

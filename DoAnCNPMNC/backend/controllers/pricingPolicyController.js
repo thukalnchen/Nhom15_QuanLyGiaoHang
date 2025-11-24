@@ -110,12 +110,11 @@ const getSurchargePolicies = async (req, res) => {
         name,
         type,
         value,
-        percentage,
-        conditions,
+        description,
         is_active,
         created_at,
         updated_at
-      FROM surcharge_policies
+      FROM surcharges
       WHERE is_active = true
       ORDER BY created_at DESC
     `;
@@ -143,38 +142,34 @@ const createSurchargePolicy = async (req, res) => {
       name,
       type,
       value,
-      percentage,
-      conditions,
       description
     } = req.body;
 
-    if (!name || !type) {
+    if (!name || !type || value === undefined) {
       return res.status(400).json({
         status: 'error',
-        message: 'Tên và loại phụ phí là bắt buộc'
+        message: 'Tên, loại và giá trị phụ phí là bắt buộc'
       });
     }
 
     const query = `
-      INSERT INTO surcharge_policies (
+      INSERT INTO surcharges (
         name,
         type,
         value,
-        percentage,
-        conditions,
+        description,
         is_active,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, true, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await pool.query(query, [
       name,
       type,
-      parseFloat(value) || 0,
-      parseFloat(percentage) || 0,
-      conditions ? JSON.stringify(conditions) : null
+      parseFloat(value),
+      description || null
     ]);
 
     res.status(201).json({
@@ -195,22 +190,22 @@ const createSurchargePolicy = async (req, res) => {
 // Update surcharge policy
 const updateSurchargePolicy = async (req, res) => {
   try {
-    const { policyId } = req.params;
+    const { id } = req.params;
     const {
       name,
+      type,
       value,
-      percentage,
-      conditions,
+      description,
       isActive
     } = req.body;
 
     const query = `
-      UPDATE surcharge_policies
+      UPDATE surcharges
       SET 
         name = COALESCE($1, name),
-        value = COALESCE($2::DECIMAL, value),
-        percentage = COALESCE($3::DECIMAL, percentage),
-        conditions = COALESCE($4, conditions),
+        type = COALESCE($2, type),
+        value = COALESCE($3::DECIMAL, value),
+        description = COALESCE($4, description),
         is_active = COALESCE($5, is_active),
         updated_at = NOW()
       WHERE id = $6
@@ -219,11 +214,11 @@ const updateSurchargePolicy = async (req, res) => {
 
     const result = await pool.query(query, [
       name || null,
-      value || null,
-      percentage || null,
-      conditions ? JSON.stringify(conditions) : null,
+      type || null,
+      value !== undefined ? parseFloat(value) : null,
+      description || null,
       isActive !== undefined ? isActive : null,
-      policyId
+      id
     ]);
 
     if (result.rows.length === 0) {
@@ -259,18 +254,17 @@ const getDiscountPolicies = async (req, res) => {
         code,
         name,
         type,
-        discount_value,
-        discount_percentage,
-        max_discount,
+        value,
         min_order_value,
+        max_discount,
         usage_limit,
-        used_count,
+        usage_count,
         valid_from,
-        valid_until,
+        valid_to,
         is_active,
         created_at,
         updated_at
-      FROM discount_policies
+      FROM discounts
       WHERE 1=1
     `;
 
@@ -306,39 +300,37 @@ const createDiscountPolicy = async (req, res) => {
       code,
       name,
       type,
-      discountValue,
-      discountPercentage,
+      value,
       maxDiscount,
       minOrderValue,
       usageLimit,
       validFrom,
-      validUntil
+      validTo
     } = req.body;
 
-    if (!code || !name || !type) {
+    if (!code || !name || !type || value === undefined) {
       return res.status(400).json({
         status: 'error',
-        message: 'Mã, tên và loại giảm giá là bắt buộc'
+        message: 'Mã, tên, loại và giá trị giảm giá là bắt buộc'
       });
     }
 
     const query = `
-      INSERT INTO discount_policies (
+      INSERT INTO discounts (
         code,
         name,
         type,
-        discount_value,
-        discount_percentage,
-        max_discount,
+        value,
         min_order_value,
+        max_discount,
         usage_limit,
-        used_count,
+        usage_count,
         valid_from,
-        valid_until,
+        valid_to,
         is_active,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $10, true, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, true, NOW(), NOW())
       RETURNING *
     `;
 
@@ -346,13 +338,12 @@ const createDiscountPolicy = async (req, res) => {
       code.toUpperCase(),
       name,
       type,
-      parseFloat(discountValue) || 0,
-      parseFloat(discountPercentage) || 0,
-      parseFloat(maxDiscount) || 0,
+      parseFloat(value),
       parseFloat(minOrderValue) || 0,
+      parseFloat(maxDiscount) || null,
       parseInt(usageLimit) || null,
       validFrom || null,
-      validUntil || null
+      validTo || null
     ]);
 
     res.status(201).json({
@@ -388,16 +379,15 @@ const validateDiscountCode = async (req, res) => {
         code,
         name,
         type,
-        discount_value,
-        discount_percentage,
+        value,
         max_discount,
         min_order_value,
         usage_limit,
-        used_count,
+        usage_count,
         valid_from,
-        valid_until,
+        valid_to,
         is_active
-      FROM discount_policies
+      FROM discounts
       WHERE UPPER(code) = UPPER($1) AND is_active = true
     `;
 
@@ -413,7 +403,7 @@ const validateDiscountCode = async (req, res) => {
     const discount = result.rows[0];
 
     // Validate usage limit
-    if (discount.usage_limit && discount.used_count >= discount.usage_limit) {
+    if (discount.usage_limit && discount.usage_count >= discount.usage_limit) {
       return res.status(400).json({
         status: 'error',
         message: 'Mã giảm giá đã hết lượt sử dụng'
@@ -429,7 +419,7 @@ const validateDiscountCode = async (req, res) => {
       });
     }
 
-    if (discount.valid_until && new Date(discount.valid_until) < now) {
+    if (discount.valid_to && new Date(discount.valid_to) < now) {
       return res.status(400).json({
         status: 'error',
         message: 'Mã giảm giá đã hết hạn'
@@ -447,10 +437,10 @@ const validateDiscountCode = async (req, res) => {
     // Calculate discount amount
     let discountAmount = 0;
     if (discount.type === 'fixed') {
-      discountAmount = discount.discount_value;
+      discountAmount = discount.value;
     } else if (discount.type === 'percentage') {
-      discountAmount = (orderValue * discount.discount_percentage) / 100;
-      if (discount.max_discount > 0) {
+      discountAmount = (orderValue * discount.value) / 100;
+      if (discount.max_discount && discount.max_discount > 0) {
         discountAmount = Math.min(discountAmount, discount.max_discount);
       }
     }
@@ -474,13 +464,155 @@ const validateDiscountCode = async (req, res) => {
   }
 };
 
+// Delete surcharge policy
+const deleteSurchargePolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      DELETE FROM surcharges
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy chính sách phụ phí'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Xóa chính sách phụ phí thành công'
+    });
+  } catch (error) {
+    console.error('Error deleting surcharge policy:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi xóa chính sách phụ phí',
+      error: error.message
+    });
+  }
+};
+
+// Update discount policy
+const updateDiscountPolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      code,
+      name,
+      type,
+      value,
+      minOrderValue,
+      maxDiscount,
+      usageLimit,
+      validFrom,
+      validTo,
+      isActive
+    } = req.body;
+
+    const query = `
+      UPDATE discounts
+      SET 
+        code = COALESCE($1, code),
+        name = COALESCE($2, name),
+        type = COALESCE($3, type),
+        value = COALESCE($4::DECIMAL, value),
+        min_order_value = COALESCE($5::DECIMAL, min_order_value),
+        max_discount = COALESCE($6::DECIMAL, max_discount),
+        usage_limit = COALESCE($7::INTEGER, usage_limit),
+        valid_from = COALESCE($8::TIMESTAMP, valid_from),
+        valid_to = COALESCE($9::TIMESTAMP, valid_to),
+        is_active = COALESCE($10, is_active),
+        updated_at = NOW()
+      WHERE id = $11
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [
+      code ? code.toUpperCase() : null,
+      name || null,
+      type || null,
+      value !== undefined ? parseFloat(value) : null,
+      minOrderValue !== undefined ? parseFloat(minOrderValue) : null,
+      maxDiscount !== undefined ? parseFloat(maxDiscount) : null,
+      usageLimit !== undefined ? parseInt(usageLimit) : null,
+      validFrom || null,
+      validTo || null,
+      isActive !== undefined ? isActive : null,
+      id
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy chính sách giảm giá'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Cập nhật chính sách giảm giá thành công',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating discount policy:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi cập nhật chính sách giảm giá',
+      error: error.message
+    });
+  }
+};
+
+// Delete discount policy
+const deleteDiscountPolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      DELETE FROM discounts
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy chính sách giảm giá'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Xóa chính sách giảm giá thành công'
+    });
+  } catch (error) {
+    console.error('Error deleting discount policy:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi xóa chính sách giảm giá',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getPricingTable,
   updatePricing,
   getSurchargePolicies,
   createSurchargePolicy,
   updateSurchargePolicy,
+  deleteSurchargePolicy,
   getDiscountPolicies,
   createDiscountPolicy,
+  updateDiscountPolicy,
+  deleteDiscountPolicy,
   validateDiscountCode
 };

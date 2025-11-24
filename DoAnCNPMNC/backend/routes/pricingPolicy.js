@@ -7,8 +7,11 @@ const {
   getSurchargePolicies,
   createSurchargePolicy,
   updateSurchargePolicy,
+  deleteSurchargePolicy,
   getDiscountPolicies,
   createDiscountPolicy,
+  updateDiscountPolicy,
+  deleteDiscountPolicy,
   validateDiscountCode
 } = require('../controllers/pricingPolicyController');
 
@@ -32,11 +35,14 @@ router.put('/pricing', authenticateToken, checkAdmin, updatePricing);
 // Surcharge policy routes
 router.get('/surcharges', authenticateToken, getSurchargePolicies);
 router.post('/surcharges', authenticateToken, checkAdmin, createSurchargePolicy);
-router.put('/surcharges/:policyId', authenticateToken, checkAdmin, updateSurchargePolicy);
+router.put('/surcharges/:id', authenticateToken, checkAdmin, updateSurchargePolicy);
+router.delete('/surcharges/:id', authenticateToken, checkAdmin, deleteSurchargePolicy);
 
 // Discount policy routes
 router.get('/discounts', authenticateToken, getDiscountPolicies);
 router.post('/discounts', authenticateToken, checkAdmin, createDiscountPolicy);
+router.put('/discounts/:id', authenticateToken, checkAdmin, updateDiscountPolicy);
+router.delete('/discounts/:id', authenticateToken, checkAdmin, deleteDiscountPolicy);
 
 // Validate discount code (can be called by anyone)
 router.post('/discounts/validate', validateDiscountCode);

@@ -23,6 +23,8 @@ class OrderProvider with ChangeNotifier {
     String? deliveryPhone,
     String? notes,
     String? token,
+    String? customerRequestedVehicle,
+    String? customerEstimatedSize,
   }) async {
     if (token == null) {
       print('❌ createOrder: Token is null');
@@ -51,6 +53,8 @@ class OrderProvider with ChangeNotifier {
           'delivery_address': deliveryAddress,
           'delivery_phone': deliveryPhone,
           'notes': notes,
+          if (customerRequestedVehicle != null) 'customer_requested_vehicle': customerRequestedVehicle,
+          if (customerEstimatedSize != null) 'customer_estimated_size': customerEstimatedSize,
         }),
       );
       
