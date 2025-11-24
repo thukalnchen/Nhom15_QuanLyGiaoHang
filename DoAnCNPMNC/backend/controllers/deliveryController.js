@@ -2,8 +2,8 @@ const axios = require('axios');
 const { pool } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
-// Price calculation service
-const PRICE_CONFIG = {
+// Fallback price configuration (used if database pricing rules are not available)
+const FALLBACK_PRICE_CONFIG = {
   basePricePerKm: {
     motorcycle: 5000,
     van_500: 8000,
@@ -24,6 +24,55 @@ const PRICE_CONFIG = {
     round_trip_percentage: 0.7,
   },
 };
+
+// Get active pricing rule from database
+async function getPricingRuleFromDB(vehicleType) {
+  try {
+    const query = `
+      SELECT 
+        base_price_per_km,
+        minimum_fare,
+        train_station_fee,
+        extra_weight_per_kg,
+        helper_small_fee,
+        helper_large_fee,
+        round_trip_percentage,
+        weight_factor,
+        distance_factor
+      FROM pricing_rules
+      WHERE vehicle_type = $1 
+        AND is_active = true
+        AND (effective_from IS NULL OR effective_from <= NOW())
+        AND (effective_until IS NULL OR effective_until >= NOW())
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    
+    const result = await pool.query(query, [vehicleType]);
+    
+    if (result.rows.length > 0) {
+      const rule = result.rows[0];
+      return {
+        basePricePerKm: parseFloat(rule.base_price_per_km),
+        minimumFare: parseFloat(rule.minimum_fare),
+        trainStationFee: parseFloat(rule.train_station_fee),
+        extraWeightPerKg: parseFloat(rule.extra_weight_per_kg),
+        helperSmallFee: parseFloat(rule.helper_small_fee),
+        helperLargeFee: parseFloat(rule.helper_large_fee),
+        roundTripPercentage: parseFloat(rule.round_trip_percentage),
+        weightFactor: parseFloat(rule.weight_factor || 1.0),
+        distanceFactor: parseFloat(rule.distance_factor || 1.0),
+      };
+    }
+    
+    // Return null if no rule found (will use fallback)
+    return null;
+  } catch (error) {
+    console.error('Error getting pricing rule from DB:', error);
+    // Return null to use fallback
+    return null;
+  }
+}
 
 // Calculate price based on distance and services
 exports.calculatePrice = async (req, res) => {
@@ -78,14 +127,34 @@ exports.calculatePrice = async (req, res) => {
       durationInSeconds = Math.floor((distanceInMeters / 500) * 60);
     }
 
-    // Calculate pricing
-    const distanceInKm = distanceInMeters / 1000;
-    const basePricePerKm = PRICE_CONFIG.basePricePerKm[vehicleType] || 5000;
-    const minimumFare = PRICE_CONFIG.minimumFare[vehicleType] || 15000;
+    // Get pricing rule from database or use fallback
+    const pricingRule = await getPricingRuleFromDB(vehicleType);
+    
+    const priceConfig = pricingRule || {
+      basePricePerKm: FALLBACK_PRICE_CONFIG.basePricePerKm[vehicleType] || 5000,
+      minimumFare: FALLBACK_PRICE_CONFIG.minimumFare[vehicleType] || 15000,
+      trainStationFee: FALLBACK_PRICE_CONFIG.servicePrices.train_station,
+      extraWeightPerKg: FALLBACK_PRICE_CONFIG.servicePrices.extra_weight_per_kg,
+      helperSmallFee: FALLBACK_PRICE_CONFIG.servicePrices.helper_small,
+      helperLargeFee: FALLBACK_PRICE_CONFIG.servicePrices.helper_large,
+      roundTripPercentage: FALLBACK_PRICE_CONFIG.servicePrices.round_trip_percentage,
+      weightFactor: 1.0,
+      distanceFactor: 1.0,
+    };
+
+    // Calculate pricing with factors
+    const distanceInKm = (distanceInMeters / 1000) * priceConfig.distanceFactor;
+    const basePricePerKm = priceConfig.basePricePerKm;
+    const minimumFare = priceConfig.minimumFare;
 
     let baseFare = distanceInKm * basePricePerKm;
     if (baseFare < minimumFare) {
       baseFare = minimumFare;
+    }
+
+    // Apply weight factor if applicable
+    if (extraWeight > 0 && priceConfig.weightFactor !== 1.0) {
+      baseFare = baseFare * priceConfig.weightFactor;
     }
 
     // Calculate services cost
@@ -93,20 +162,20 @@ exports.calculatePrice = async (req, res) => {
     const servicesApplied = [];
 
     if (services.train_station) {
-      servicesCost += PRICE_CONFIG.servicePrices.train_station;
-      servicesApplied.push(`Giao đến bến xe/nhà ga (+${formatPrice(PRICE_CONFIG.servicePrices.train_station)})`);
+      servicesCost += priceConfig.trainStationFee;
+      servicesApplied.push(`Giao đến bến xe/nhà ga (+${formatPrice(priceConfig.trainStationFee)})`);
     }
 
     if (services.extra_weight && extraWeight > 0) {
-      const extraWeightCost = extraWeight * PRICE_CONFIG.servicePrices.extra_weight_per_kg;
+      const extraWeightCost = extraWeight * priceConfig.extraWeightPerKg;
       servicesCost += extraWeightCost;
       servicesApplied.push(`Tăng trọng tải ${extraWeight}kg (+${formatPrice(extraWeightCost)})`);
     }
 
     if (services.helper) {
       const helperCost = vehicleType === 'van_1000' 
-        ? PRICE_CONFIG.servicePrices.helper_large 
-        : PRICE_CONFIG.servicePrices.helper_small;
+        ? priceConfig.helperLargeFee 
+        : priceConfig.helperSmallFee;
       servicesCost += helperCost;
       servicesApplied.push(`Người phụ (+${formatPrice(helperCost)})`);
     }
@@ -117,8 +186,9 @@ exports.calculatePrice = async (req, res) => {
     // Calculate round trip cost
     let roundTripCost = 0;
     if (services.round_trip) {
-      roundTripCost = subtotal * PRICE_CONFIG.servicePrices.round_trip_percentage;
-      servicesApplied.push('Khứ hồi (+70%)');
+      roundTripCost = subtotal * priceConfig.roundTripPercentage;
+      const percentage = Math.round(priceConfig.roundTripPercentage * 100);
+      servicesApplied.push(`Khứ hồi (+${percentage}%)`);
     }
 
     // Calculate total

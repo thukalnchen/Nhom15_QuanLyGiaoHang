@@ -51,7 +51,7 @@ exports.searchOrderByCode = async (req, res) => {
         u.email as customer_email
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
-      WHERE o.order_code = $1 OR o.order_number = $1
+      WHERE o.order_number = $1
     `;
     const result = await pool.query(query, [code]);
     
@@ -222,6 +222,8 @@ exports.assignDriver = async (req, res) => {
   try {
     const { order_id, driver_id } = req.body;
     
+    console.log('📡 assignDriver called:', { order_id, driver_id });
+    
     // Validation
     if (!order_id || !driver_id) {
       return res.status(400).json({
@@ -242,25 +244,22 @@ exports.assignDriver = async (req, res) => {
     }
     
     const driver = driverResult.rows[0];
+    console.log('✅ Found driver:', driver.full_name);
     
+    // Update order - sử dụng shipper_id thay vì driver_id
     const query = `
       UPDATE orders 
       SET 
         status = 'assigned_to_driver',
-        driver_id = $1,
-        driver_name = $2,
-        driver_phone = $3,
-        vehicle_type = $4,
-        assigned_at = NOW(),
+        shipper_id = $1,
+        vehicle_type = $2,
         updated_at = NOW()
-      WHERE id = $5 AND status IN ('classified', 'ready_for_pickup')
+      WHERE id = $3 AND status IN ('classified', 'ready_for_pickup')
       RETURNING *
     `;
     
     const result = await pool.query(query, [
       driver.id,
-      driver.name,
-      driver.phone,
       driver.vehicle_type || 'bike',
       order_id
     ]);
@@ -272,7 +271,7 @@ exports.assignDriver = async (req, res) => {
       });
     }
     
-    console.log(`Order ${order_id} assigned to driver ${driver.name}`);
+    console.log(`✅ Order ${order_id} assigned to driver ${driver.full_name}`);
     
     res.json({
       success: true,
@@ -293,28 +292,49 @@ exports.getAvailableDrivers = async (req, res) => {
   try {
     const { vehicle_type } = req.query;
     
+    console.log('📡 getAvailableDrivers called with vehicle_type:', vehicle_type);
+    
+    // Query lấy danh sách tài xế + đếm số đơn đang giao
+    // Note: role='shipper' vì trong database người giao hàng có role là 'shipper'
     let query = `
-      SELECT id, name, phone, vehicle_type, vehicle_number
-      FROM users 
-      WHERE role = 'driver' AND is_active = true
+      SELECT 
+        u.id,
+        u.full_name as name,
+        u.phone,
+        u.vehicle_type,
+        u.vehicle_number,
+        u.vehicle_registration,
+        COUNT(o.id) FILTER (WHERE o.status IN ('assigned_to_driver', 'picked_up', 'in_delivery')) as current_orders
+      FROM users u
+      LEFT JOIN orders o ON o.shipper_id = u.id 
+        AND o.status IN ('assigned_to_driver', 'picked_up', 'in_delivery')
+      WHERE u.role = 'shipper'
     `;
     
     const params = [];
+    
+    // Lọc theo vehicle_type nếu có
     if (vehicle_type) {
-      query += ' AND vehicle_type = $1';
+      query += ' AND u.vehicle_type = $1';
       params.push(vehicle_type);
     }
     
-    query += ' ORDER BY name';
+    query += ' GROUP BY u.id, u.full_name, u.phone, u.vehicle_type, u.vehicle_number, u.vehicle_registration';
+    query += ' ORDER BY current_orders ASC, u.full_name ASC';
+    
+    console.log('📡 SQL Query:', query);
+    console.log('📡 Params:', params);
     
     const result = await pool.query(query, params);
+    
+    console.log('✅ Found drivers:', result.rows.length);
     
     res.json({
       success: true,
       drivers: result.rows
     });
   } catch (error) {
-    console.error('Error getting available drivers:', error);
+    console.error('❌ Error getting available drivers:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -342,7 +362,7 @@ exports.collectCOD = async (req, res) => {
         cod_collected_at = NOW(),
         updated_at = NOW()
       WHERE id = $1 
-        AND is_cod = true 
+        AND (payment_method = 'cod' OR payment_method = 'COD')
         AND cod_payment_type = 'sender_pays'
         AND cod_collected_at_warehouse = false
       RETURNING *

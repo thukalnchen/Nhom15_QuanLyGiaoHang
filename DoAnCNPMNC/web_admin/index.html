@@ -3,546 +3,936 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Food Delivery Admin - Dashboard</title>
-    
-    <!-- Bootstrap CSS -->
+    <title>Lalamove Admin - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Socket.IO -->
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    
-    <style>
-        :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --dark-color: #1f2937;
-            --light-color: #f8fafc;
-        }
-
-        body {
-            background-color: var(--light-color);
-            font-family: 'Inter', sans-serif;
-        }
-
-        .sidebar {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            min-height: 100vh;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin: 4px 0;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-            transform: translateX(5px);
-        }
-
-        .main-content {
-            padding: 20px;
-        }
-
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.2s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-        }
-
-        .stat-card.success {
-            background: linear-gradient(135deg, var(--success-color), #059669);
-        }
-
-        .stat-card.warning {
-            background: linear-gradient(135deg, var(--warning-color), #d97706);
-        }
-
-        .stat-card.danger {
-            background: linear-gradient(135deg, var(--danger-color), #dc2626);
-        }
-
-        .table-responsive {
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .table th {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            font-weight: 600;
-        }
-
-        .badge {
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-weight: 500;
-        }
-
-        .status-pending { background-color: var(--warning-color); }
-        .status-processing { background-color: var(--primary-color); }
-        .status-shipped { background-color: var(--secondary-color); }
-        .status-delivered { background-color: var(--success-color); }
-        .status-cancelled { background-color: var(--danger-color); }
-
-        .map-container {
-            height: 400px;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .loading {
-            display: none;
-        }
-
-        .loading.show {
-            display: block;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1050;
-            min-width: 300px;
-        }
-
-        .order-item {
-            border-left: 4px solid var(--primary-color);
-            padding: 15px;
-            margin-bottom: 10px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .real-time-indicator {
-            width: 10px;
-            height: 10px;
-            background-color: var(--success-color);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-weight: 500;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js" defer></script>
+    <link rel="stylesheet" href="css/admin.css">
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));">
+<body class="admin-shell">
+    <nav class="navbar navbar-expand-lg admin-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-utensils me-2"></i>
-                Food Delivery Admin
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <span class="brand-mark d-inline-flex align-items-center justify-content-center">
+                    <i class="fas fa-shipping-fast"></i>
+                </span>
+                <span class="brand-text">
+                    <span class="brand-title">Lalamove Logistics</span>
+                    <span class="brand-subtitle">Admin Control Center</span>
+                </span>
             </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text text-white me-3" id="demo-badge" style="display: none;">
-                    <span class="badge bg-warning text-dark">
-                        <i class="fas fa-flask me-1"></i>DEMO MODE
+            <div class="d-flex align-items-center ms-auto gap-3">
+                <span class="navbar-text" id="demo-badge" style="display: none;">
+                    <span class="badge demo-badge">
+                        <i class="fas fa-flask me-1"></i>Demo Mode
                     </span>
                 </span>
                 <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-user-circle me-1"></i>
+                    <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown">
+                        <span class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </span>
                         <span id="user-name">Admin</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
+                        <li>
+                            <button class="dropdown-item" type="button" onclick="logout()">
+                                <i class="fas fa-sign-out-alt me-2"></i>Đăng xuất
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0">
-                <div class="sidebar">
-                    <div class="p-3">
-                        <h5 class="text-white mb-3">Menu</h5>
-                        <nav class="nav flex-column">
-                            <a class="nav-link active" href="#" onclick="showDashboard()">
-                                <i class="fas fa-tachometer-alt me-2"></i>
-                                Dashboard
-                            </a>
-                            <a class="nav-link" href="#" onclick="showOrders()">
-                                <i class="fas fa-shopping-cart me-2"></i>
-                                Đơn hàng
-                            </a>
-                            <a class="nav-link" href="#" onclick="showTracking()">
-                                <i class="fas fa-map-marker-alt me-2"></i>
-                                Theo dõi giao hàng
-                            </a>
-                            <a class="nav-link" href="#" onclick="showUsers()">
-                                <i class="fas fa-users me-2"></i>
-                                Người dùng
-                            </a>
-                            <a class="nav-link" href="#" onclick="showAnalytics()">
-                                <i class="fas fa-chart-bar me-2"></i>
-                                Thống kê
-                            </a>
-                        </nav>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-inner">
+                <div class="sidebar-heading">
+                    <h6>Điều hướng</h6>
+                    <p>Tổng quan & tác vụ vận hành</p>
+                </div>
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="#" onclick="showDashboard()">
+                        <i class="fas fa-gauge-high"></i>
+                        Dashboard
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showOrders()">
+                        <i class="fas fa-clipboard-list"></i>
+                        Đơn hàng
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showTracking()">
+                        <i class="fas fa-route"></i>
+                        Theo dõi giao hàng
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showShippers()">
+                        <i class="fas fa-motorcycle"></i>
+                        Shipper
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showUsers()">
+                        <i class="fas fa-users"></i>
+                        Người dùng
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showAnalytics()">
+                        <i class="fas fa-chart-line"></i>
+                        Thống kê
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showAreas()">
+                        <i class="fas fa-map-marked-alt"></i>
+                        Khu vực
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showPricingRules()">
+                        <i class="fas fa-dollar-sign"></i>
+                        Bảng giá
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showHubs()">
+                        <i class="fas fa-warehouse"></i>
+                        Kho/Bưu cục
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showCodReconciliation()">
+                        <i class="fas fa-money-check-alt"></i>
+                        Đối soát COD
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showNotifications()">
+                        <i class="fas fa-bell"></i>
+                        Gửi thông báo
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showLogs()">
+                        <i class="fas fa-history"></i>
+                        Nhật ký hệ thống
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <section id="dashboard-section" class="section-block">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Tổng quan vận hành</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-gauge-high me-2"></i>
+                            Dashboard
+                        </h1>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="real-time-indicator"></span>
+                        <span>Dữ liệu realtime</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
-                <div class="main-content">
-                    <!-- Dashboard Section -->
-                    <div id="dashboard-section">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
-                            <div>
-                                <span class="real-time-indicator"></span>
-                                <small class="text-muted">Dữ liệu realtime</small>
-                            </div>
-                        </div>
-
-                        <!-- Statistics Cards -->
-                        <div class="row mb-4">
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Tổng đơn hàng</h6>
-                                                <h3 class="text-white" id="total-orders">0</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-shopping-cart fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card success">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Đã giao</h6>
-                                                <h3 class="text-white" id="delivered-orders">0</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-check-circle fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card warning">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Đang xử lý</h6>
-                                                <h3 class="text-white" id="processing-orders">0</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-clock fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card stat-card danger">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <h6 class="card-title text-white-50">Tổng doanh thu</h6>
-                                                <h3 class="text-white" id="total-revenue">0đ</h3>
-                                            </div>
-                                            <div class="align-self-center">
-                                                <i class="fas fa-dollar-sign fa-2x text-white-50"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Charts -->
-                        <div class="row mb-4">
-                            <div class="col-md-8">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Thống kê đơn hàng theo ngày</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="ordersChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Trạng thái đơn hàng</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="statusChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Orders -->
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="card-title mb-0">Đơn hàng gần đây</h5>
-                                <button class="btn btn-primary btn-sm" onclick="showOrders()">
-                                    Xem tất cả
-                                </button>
-                            </div>
+                <div class="row g-4">
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card">
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Mã đơn</th>
-                                                <th>Nhà hàng</th>
-                                                <th>Khách hàng</th>
-                                                <th>Tổng tiền</th>
-                                                <th>Trạng thái</th>
-                                                <th>Thời gian</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="recent-orders-table">
-                                            <!-- Data will be loaded here -->
-                                        </tbody>
-                                    </table>
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tổng đơn hàng</p>
+                                    <h3 class="stat-card__value" id="total-orders">0</h3>
+                                    <span class="stat-card__meta">Tất cả tuyến giao trong ngày</span>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card stat-card--success">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Đã giao</p>
+                                    <h3 class="stat-card__value" id="delivered-orders">0</h3>
+                                    <span class="stat-card__meta">Hoàn tất thành công</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card stat-card--warning">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-spinner"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Đang xử lý</p>
+                                    <h3 class="stat-card__value" id="processing-orders">0</h3>
+                                    <span class="stat-card__meta">Chờ điều phối hoặc đang giao</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card stat-card stat-card--brand">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-coins"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tổng doanh thu</p>
+                                    <h3 class="stat-card__value" id="total-revenue">0đ</h3>
+                                    <span class="stat-card__meta">Bao gồm phí giao nhận</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                    <!-- Orders Section -->
-                    <div id="orders-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-shopping-cart me-2"></i>Quản lý đơn hàng</h2>
-                            <div class="d-flex gap-2">
+                <div class="row g-4 mt-1">
+                    <div class="col-lg-8">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Thống kê đơn hàng theo ngày</h5>
+                                <span class="card-subtitle">7 ngày gần nhất</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="ordersChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Trạng thái đơn hàng</h5>
+                                <span class="card-subtitle">Cập nhật realtime</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statusChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header card-header--tight d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div>
+                            <h5 class="card-title mb-0">Đơn hàng gần đây</h5>
+                            <span class="card-subtitle">Theo dõi các đơn mới nhất</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm px-3" onclick="showOrders()">
+                            Xem tất cả
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mã đơn</th>
+                                        <th>Nhà hàng</th>
+                                        <th>Khách hàng</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thời gian</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-orders-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="orders-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Điều phối vận hành</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            Quản lý đơn hàng
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            <div class="filter-group">
+                                <label for="search-filter" class="form-label mb-0">Tìm kiếm</label>
+                                <input type="text" class="form-control" id="search-filter" placeholder="Mã đơn, tên, SĐT..." onkeyup="if(event.key==='Enter') filterOrders()">
+                            </div>
+                            <div class="filter-group">
+                                <label for="status-filter" class="form-label mb-0">Trạng thái</label>
                                 <select class="form-select" id="status-filter" onchange="filterOrders()">
-                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="">Tất cả</option>
                                     <option value="pending">Chờ xử lý</option>
                                     <option value="processing">Đang xử lý</option>
                                     <option value="shipped">Đang giao</option>
                                     <option value="delivered">Đã giao</option>
                                     <option value="cancelled">Đã hủy</option>
                                 </select>
-                                <button class="btn btn-primary" onclick="refreshOrders()">
-                                    <i class="fas fa-sync-alt me-1"></i>Làm mới
-                                </button>
                             </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Mã đơn</th>
-                                                <th>Nhà hàng</th>
-                                                <th>Khách hàng</th>
-                                                <th>Sản phẩm</th>
-                                                <th>Tổng tiền</th>
-                                                <th>Trạng thái</th>
-                                                <th>Thời gian</th>
-                                                <th>Hành động</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="orders-table">
-                                            <!-- Data will be loaded here -->
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="filter-group">
+                                <label for="start-date-filter" class="form-label mb-0">Từ ngày</label>
+                                <input type="date" class="form-control" id="start-date-filter" onchange="filterOrders()">
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Tracking Section -->
-                    <div id="tracking-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-map-marker-alt me-2"></i>Theo dõi giao hàng</h2>
-                            <div>
-                                <span class="real-time-indicator"></span>
-                                <small class="text-muted">Cập nhật realtime</small>
+                            <div class="filter-group">
+                                <label for="end-date-filter" class="form-label mb-0">Đến ngày</label>
+                                <input type="date" class="form-control" id="end-date-filter" onchange="filterOrders()">
                             </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-8">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Bản đồ theo dõi</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="map" class="map-container">
-                                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                                                <div class="text-center">
-                                                    <i class="fas fa-map fa-3x mb-3"></i>
-                                                    <p>Bản đồ sẽ hiển thị khi có đơn hàng đang giao</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Đơn hàng đang giao</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="active-deliveries">
-                                            <!-- Active deliveries will be loaded here -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Users Section -->
-                    <div id="users-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-users me-2"></i>Quản lý người dùng</h2>
-                            <button class="btn btn-primary" onclick="refreshUsers()">
-                                <i class="fas fa-sync-alt me-1"></i>Làm mới
+                            <button class="btn btn-primary" onclick="refreshOrders()">
+                                <i class="fas fa-sync-alt me-2"></i>Làm mới
+                            </button>
+                            <button class="btn btn-success" onclick="showDispatchModal()">
+                                <i class="fas fa-truck me-2"></i>Điều phối
                             </button>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="card">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            <input type="checkbox" id="select-all-orders" onchange="toggleSelectAllOrders()">
+                                        </th>
+                                        <th>Mã đơn</th>
+                                        <th>Nhà hàng</th>
+                                        <th>Khách hàng</th>
+                                        <th>Sản phẩm</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Shipper</th>
+                                        <th>Thời gian</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-table"></tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center" id="orders-pagination">
+                            <!-- Pagination will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tracking-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Theo dõi trực tuyến</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-route me-2"></i>
+                            Theo dõi giao hàng
+                        </h1>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="real-time-indicator"></span>
+                        <span>Cập nhật realtime</span>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-xl-8">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Bản đồ theo dõi</h5>
+                                <span class="card-subtitle">Hiển thị khi có đơn đang giao</span>
+                            </div>
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>ID</th>
-                                                <th>Tên</th>
-                                                <th>Email</th>
-                                                <th>Số điện thoại</th>
-                                                <th>Địa chỉ</th>
-                                                <th>Ngày tạo</th>
-                                                <th>Hành động</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="users-table">
-                                            <!-- Data will be loaded here -->
-                                        </tbody>
-                                    </table>
+                                <div id="map" class="map-container">
+                                    <div class="map-placeholder">
+                                        <i class="fas fa-map-marked-alt"></i>
+                                        <p>Bản đồ sẽ hiển thị khi có đơn hàng đang giao</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Analytics Section -->
-                    <div id="analytics-section" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2><i class="fas fa-chart-bar me-2"></i>Thống kê chi tiết</h2>
-                            <div class="d-flex gap-2">
-                                <select class="form-select" id="analytics-period">
-                                    <option value="7">7 ngày qua</option>
-                                    <option value="30">30 ngày qua</option>
-                                    <option value="90">90 ngày qua</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="loadAnalytics()">
-                                    <i class="fas fa-sync-alt me-1"></i>Tải lại
-                                </button>
+                    <div class="col-xl-4">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Đơn hàng đang giao</h5>
+                                <span class="card-subtitle">Danh sách realtime</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="active-deliveries" class="active-deliveries"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
 
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Doanh thu theo ngày</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="revenueChart"></canvas>
-                                    </div>
+            <section id="shippers-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Trung tâm đối tác</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-motorcycle me-2"></i>
+                            Quản lý shipper
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filter-group">
+                            <label for="shipper-status-filter" class="form-label mb-0">Trạng thái</label>
+                            <select class="form-select" id="shipper-status-filter" onchange="loadShippers()">
+                                <option value="">Tất cả</option>
+                                <option value="pending">Chờ duyệt</option>
+                                <option value="approved">Đã duyệt</option>
+                                <option value="rejected">Từ chối</option>
+                                <option value="suspended">Tạm khóa</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="refreshShippers()">
+                            <i class="fas fa-sync-alt me-2"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Họ tên</th>
+                                        <th>Email</th>
+                                        <th>SĐT</th>
+                                        <th>Loại xe</th>
+                                        <th>Biển số</th>
+                                        <th>Trạng thái</th>
+                                        <th>Ngày đăng ký</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shippers-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="users-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Quản lý tập trung người dùng</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-users me-2"></i>
+                            Quản lý người dùng
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            <div class="filter-group">
+                                <label for="user-role-filter" class="form-label mb-0">Vai trò</label>
+                                <select class="form-select" id="user-role-filter" onchange="filterUsers()">
+                                    <option value="">Tất cả</option>
+                                    <option value="customer">Khách hàng</option>
+                                    <option value="shipper">Shipper</option>
+                                    <option value="intake_staff">Nhân viên kho</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="user-search-filter" class="form-label mb-0">Tìm kiếm</label>
+                                <input type="text" class="form-control" id="user-search-filter" placeholder="Tên, SĐT, Email..." onkeyup="if(event.key==='Enter') filterUsers()">
+                            </div>
+                            <button class="btn btn-primary" onclick="refreshUsers()">
+                                <i class="fas fa-sync-alt me-2"></i>Làm mới
+                            </button>
+                            <button class="btn btn-success" onclick="showCreateUserModal()">
+                                <i class="fas fa-plus me-2"></i>Thêm người dùng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tên</th>
+                                        <th>Email</th>
+                                        <th>Số điện thoại</th>
+                                        <th>Vai trò</th>
+                                        <th>Trạng thái</th>
+                                        <th>Ngày tạo</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table"></tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center" id="users-pagination">
+                            <!-- Pagination will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-27: Notifications Management Section -->
+            <section id="notifications-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Hệ thống thông báo chủ động</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-bell me-2"></i>
+                            Gửi thông báo
+                        </h1>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <form id="notification-form" onsubmit="sendNotification(event)">
+                            <div class="mb-3">
+                                <label class="form-label">Tiêu đề <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="notification-title" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nội dung <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="notification-content" rows="5" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Đối tượng nhận <span class="text-danger">*</span></label>
+                                <select class="form-select" id="notification-recipient-type" required onchange="handleRecipientTypeChange()">
+                                    <option value="">-- Chọn đối tượng --</option>
+                                    <option value="all">Tất cả người dùng</option>
+                                    <option value="role">Theo vai trò</option>
+                                    <option value="user">Người dùng cụ thể</option>
+                                </select>
+                            </div>
+                            <div class="mb-3" id="recipient-value-group" style="display: none;">
+                                <label class="form-label" id="recipient-value-label">Giá trị</label>
+                                <select class="form-select" id="notification-recipient-role" style="display: none;">
+                                    <option value="">-- Chọn vai trò --</option>
+                                    <option value="customer">Khách hàng</option>
+                                    <option value="shipper">Shipper</option>
+                                    <option value="intake_staff">Nhân viên kho</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <input type="number" class="form-control" id="notification-recipient-user" style="display: none;" placeholder="Nhập ID người dùng">
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="notification-send-email" checked>
+                                    <label class="form-check-label" for="notification-send-email">
+                                        Gửi email
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="notification-send-push" checked>
+                                    <label class="form-check-label" for="notification-send-push">
+                                        Gửi thông báo đẩy (Push notification)
+                                    </label>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">Top nhà hàng</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="restaurantsChart"></canvas>
-                                    </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Gửi thông báo
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="resetNotificationForm()">
+                                    <i class="fas fa-redo me-2"></i>Làm mới
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-28: System Logs Section -->
+            <section id="logs-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Giám sát hệ thống</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-history me-2"></i>
+                            Nhật ký hoạt động
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            <div class="filter-group">
+                                <label for="log-action-filter" class="form-label mb-0">Hành động</label>
+                                <select class="form-select" id="log-action-filter" onchange="filterLogs()">
+                                    <option value="">Tất cả</option>
+                                    <option value="LOGIN">Đăng nhập</option>
+                                    <option value="UPDATE_ORDER_STATUS">Cập nhật trạng thái đơn</option>
+                                    <option value="UPDATE_USER_STATUS">Cập nhật trạng thái user</option>
+                                    <option value="CREATE_USER">Tạo người dùng</option>
+                                    <option value="DELETE_ORDER">Xóa đơn</option>
+                                    <option value="UPDATE_PRICE">Sửa giá</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="log-target-filter" class="form-label mb-0">Loại đối tượng</label>
+                                <select class="form-select" id="log-target-filter" onchange="filterLogs()">
+                                    <option value="">Tất cả</option>
+                                    <option value="order">Đơn hàng</option>
+                                    <option value="user">Người dùng</option>
+                                    <option value="pricing_rule">Bảng giá</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="refreshLogs()">
+                                <i class="fas fa-sync-alt me-2"></i>Làm mới
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Người thực hiện</th>
+                                        <th>Hành động</th>
+                                        <th>Đối tượng</th>
+                                        <th>IP Address</th>
+                                        <th>Chi tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logs-table"></tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center" id="logs-pagination">
+                            <!-- Pagination will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analytics-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Phân tích hiệu suất</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Thống kê chi tiết
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filter-group">
+                            <label for="analytics-period" class="form-label mb-0">Chu kỳ</label>
+                            <select class="form-select" id="analytics-period">
+                                <option value="7">7 ngày qua</option>
+                                <option value="30">30 ngày qua</option>
+                                <option value="90">90 ngày qua</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="loadAnalytics()">
+                            <i class="fas fa-sync-alt me-2"></i>Tải lại
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Doanh thu theo ngày</h5>
+                                <span class="card-subtitle">Theo chu kỳ đã chọn</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="revenueChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Top nhà hàng</h5>
+                                <span class="card-subtitle">Theo số đơn hàng</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="restaurantsChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-23: Pricing Rules Management Section -->
+            <section id="pricing-rules-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Quản lý bảng giá cước phí</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            Quản lý bảng giá
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn btn-primary" onclick="showCreatePricingRuleModal()">
+                            <i class="fas fa-plus me-2"></i>Thêm bảng giá
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Tên bảng giá</th>
+                                        <th>Loại xe</th>
+                                        <th>Giá/km (VNĐ)</th>
+                                        <th>Cước tối thiểu (VNĐ)</th>
+                                        <th>Phí dịch vụ</th>
+                                        <th>Trạng thái</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pricing-rules-table">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-24: Enhanced Statistics Dashboard Section -->
+            <section id="stats-dashboard-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Báo cáo doanh thu & hiệu suất</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Báo cáo thống kê
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filter-group">
+                            <label for="stats-period" class="form-label mb-0">Chu kỳ</label>
+                            <select class="form-select" id="stats-period" onchange="loadStatsDashboard()">
+                                <option value="7">7 ngày qua</option>
+                                <option value="30" selected>30 ngày qua</option>
+                                <option value="90">90 ngày qua</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="loadStatsDashboard()">
+                            <i class="fas fa-sync-alt me-2"></i>Tải lại
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="card stat-card stat-card--brand">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-coins"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tổng doanh thu</p>
+                                    <h3 class="stat-card__value" id="stats-total-revenue">0đ</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card stat-card--success">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tỷ lệ thành công</p>
+                                    <h3 class="stat-card__value" id="stats-success-rate">0%</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tổng đơn hàng</p>
+                                    <h3 class="stat-card__value" id="stats-total-orders">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card stat-card--warning">
+                            <div class="card-body">
+                                <div class="stat-card__icon">
+                                    <i class="fas fa-times-circle"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <p class="stat-card__label">Tỷ lệ hủy</p>
+                                    <h3 class="stat-card__value" id="stats-cancellation-rate">0%</h3>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Doanh thu theo ngày</h5>
+                                <span class="card-subtitle">Biểu đồ doanh thu</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statsRevenueChart" height="250"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Trạng thái đơn hàng</h5>
+                                <span class="card-subtitle">Phân bổ theo trạng thái</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statsStatusChart" height="250"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-4">
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Hiệu suất theo loại xe</h5>
+                                <span class="card-subtitle">Thống kê theo phương tiện</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statsVehicleChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header card-header--tight">
+                                <h5 class="card-title mb-0">Hiệu suất theo ngày</h5>
+                                <span class="card-subtitle">Tỷ lệ thành công theo thời gian</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statsPerformanceChart" height="220"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-26: Hubs Management Section -->
+            <section id="hubs-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Quản lý kho và bưu cục</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-warehouse me-2"></i>
+                            Quản lý Kho/Bưu cục
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn btn-primary" onclick="showCreateHubModal()">
+                            <i class="fas fa-plus me-2"></i>Thêm kho/bưu cục
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mã</th>
+                                        <th>Tên</th>
+                                        <th>Loại</th>
+                                        <th>Địa chỉ</th>
+                                        <th>Tọa độ</th>
+                                        <th>Liên hệ</th>
+                                        <th>Trạng thái</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hubs-table">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <!-- Loading Modal -->
     <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-body text-center">
+                <div class="modal-body text-center py-5">
                     <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mb-0">Đang tải dữ liệu...</p>
+                    <p class="mb-0 fw-medium text-secondary">Đang tải dữ liệu...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Order Details Modal -->
+    <div class="modal fade" id="shipperModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Chi tiết shipper</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="shipper-details"></div>
+                <div class="modal-footer flex-wrap gap-3 justify-content-between">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-success" onclick="updateShipperStatusFromModal('approved')">
+                            <i class="fas fa-check me-2"></i>Duyệt
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="updateShipperStatusFromModal('suspended')">
+                            <i class="fas fa-ban me-2"></i>Tạm khóa
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="updateShipperStatusFromModal('rejected')">
+                            <i class="fas fa-times me-2"></i>Từ chối
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="orderModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -550,9 +940,7 @@
                     <h5 class="modal-title">Chi tiết đơn hàng</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="order-details">
-                    <!-- Order details will be loaded here -->
-                </div>
+                <div class="modal-body" id="order-details"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                     <button type="button" class="btn btn-primary" onclick="updateOrderStatus()">Cập nhật trạng thái</button>
@@ -561,10 +949,462 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JavaScript -->
-    <script src="js/admin.js"></script>
+    <div class="modal fade" id="editOrderModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Chỉnh sửa đơn hàng</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="edit-order-form">
+                    <!-- Form will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveOrderEdit()">Lưu thay đổi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="dispatchModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Điều phối đơn hàng</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Đã chọn <span id="selected-orders-count">0</span> đơn hàng</label>
+                        <div id="selected-orders-list" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                            <small class="text-muted">Chưa có đơn hàng nào được chọn</small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Chọn Shipper <span class="text-danger">*</span></label>
+                        <select class="form-select" id="dispatch-shipper-select">
+                            <option value="">-- Chọn shipper --</option>
+                        </select>
+                        <small class="text-muted">Danh sách shipper đang rảnh và đã được duyệt</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="assignSelectedOrders()">Gán đơn hàng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section id="areas-section" class="section-block" style="display: none;">
+        <div class="section-header">
+            <div>
+                <p class="section-eyebrow">Quản lý khu vực giao hàng</p>
+                <h1 class="section-title">
+                    <i class="fas fa-map-marked-alt me-2"></i>
+                    Quản lý khu vực
+                </h1>
+            </div>
+            <div class="section-actions">
+                <button class="btn btn-primary" onclick="showCreateAreaModal()">
+                    <i class="fas fa-plus me-2"></i>Thêm khu vực
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive table-scroll">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Mã khu vực</th>
+                                <th>Tên khu vực</th>
+                                <th>Mô tả</th>
+                                <th>Ngày tạo</th>
+                                <th class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="areas-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- US-19 & US-12: COD Reconciliation Section -->
+    <section id="cod-section" class="section-block" style="display: none;">
+        <div class="section-header">
+            <div>
+                <p class="section-eyebrow">Quản lý thanh toán COD</p>
+                <h1 class="section-title">
+                    <i class="fas fa-money-check-alt me-2"></i>
+                    Đối soát COD
+                </h1>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(34, 197, 94, 0.1); color: #22c55e;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Đã thu COD</p>
+                            <h3 class="stat-value" id="cod-collected-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(59, 130, 246, 0.1); color: #3b82f6;">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Đã nhận COD</p>
+                            <h3 class="stat-value" id="cod-received-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Chờ xác nhận thu</p>
+                            <h3 class="stat-value" id="cod-pending-collection-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background-color: rgba(168, 85, 247, 0.1); color: #a855f7;">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Tổng COD (VND)</p>
+                            <h3 class="stat-value" id="cod-total-amount">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <h5 class="mb-0">Danh sách đơn hàng COD</h5>
+                    </div>
+                    <div class="col-md-8 text-end">
+                        <select class="form-select form-select-sm d-inline-block w-auto" id="cod-filter-status" onchange="loadCodOrders()">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending_collection">Chờ xác nhận thu</option>
+                            <option value="collected">Đã thu COD</option>
+                            <option value="received">Đã nhận COD</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary ms-2" onclick="loadCodOrders()">
+                            <i class="fas fa-sync-alt me-1"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive table-scroll">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Mã đơn hàng</th>
+                                <th>Khách hàng</th>
+                                <th>Shipper</th>
+                                <th>Số tiền COD</th>
+                                <th>Đã thu COD</th>
+                                <th>Đã nhận COD</th>
+                                <th>Trạng thái</th>
+                                <th class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cod-orders-table">
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="modal fade" id="areaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="area-modal-title">Thêm khu vực</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="area-form">
+                        <input type="hidden" id="area-id">
+                        <div class="mb-3">
+                            <label class="form-label">Tên khu vực <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="area-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mã khu vực <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="area-code" required>
+                            <small class="text-muted">Mã duy nhất để nhận diện khu vực</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <textarea class="form-control" id="area-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveArea()">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Rule Modal -->
+    <div class="modal fade" id="pricingRuleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pricing-rule-modal-title">Thêm bảng giá</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="pricing-rule-form">
+                        <input type="hidden" id="pricing-rule-id">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tên bảng giá <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="pricing-rule-name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Loại xe <span class="text-danger">*</span></label>
+                                <select class="form-select" id="pricing-rule-vehicle-type" required>
+                                    <option value="">-- Chọn loại xe --</option>
+                                    <option value="motorcycle">Xe máy</option>
+                                    <option value="van_500">Xe tải 500kg</option>
+                                    <option value="van_750">Xe tải 750kg</option>
+                                    <option value="van_1000">Xe tải 1000kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Giá cơ bản/km (VNĐ) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="pricing-rule-base-price" min="0" step="1000" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cước tối thiểu (VNĐ) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="pricing-rule-minimum-fare" min="0" step="1000" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phí giao bến xe/nhà ga (VNĐ)</label>
+                                <input type="number" class="form-control" id="pricing-rule-train-station-fee" min="0" step="1000" value="20000">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phí tăng trọng/kg (VNĐ)</label>
+                                <input type="number" class="form-control" id="pricing-rule-extra-weight" min="0" step="1000" value="10000">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phí người phụ (nhỏ) (VNĐ)</label>
+                                <input type="number" class="form-control" id="pricing-rule-helper-small" min="0" step="1000" value="50000">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phí người phụ (lớn) (VNĐ)</label>
+                                <input type="number" class="form-control" id="pricing-rule-helper-large" min="0" step="1000" value="70000">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tỷ lệ khứ hồi (0-1)</label>
+                                <input type="number" class="form-control" id="pricing-rule-round-trip" min="0" max="1" step="0.1" value="0.7">
+                                <small class="text-muted">Ví dụ: 0.7 = 70%</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Trạng thái</label>
+                                <select class="form-select" id="pricing-rule-is-active">
+                                    <option value="true">Kích hoạt</option>
+                                    <option value="false">Tạm khóa</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <textarea class="form-control" id="pricing-rule-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="savePricingRule()">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hub Modal -->
+    <div class="modal fade" id="hubModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="hub-modal-title">Thêm kho/bưu cục</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="hub-form">
+                        <input type="hidden" id="hub-id">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Mã kho/bưu cục <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="hub-code" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tên <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="hub-name" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Loại <span class="text-danger">*</span></label>
+                                <select class="form-select" id="hub-type" required>
+                                    <option value="">-- Chọn loại --</option>
+                                    <option value="warehouse">Kho</option>
+                                    <option value="post_office">Bưu cục</option>
+                                    <option value="checkpoint">Điểm check-in</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Trạng thái</label>
+                                <select class="form-select" id="hub-is-active">
+                                    <option value="true">Hoạt động</option>
+                                    <option value="false">Tạm khóa</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Địa chỉ <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="hub-address" rows="2" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vĩ độ (Latitude) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="hub-latitude" step="0.00000001" min="-90" max="90" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Kinh độ (Longitude) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="hub-longitude" step="0.00000001" min="-180" max="180" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Số điện thoại</label>
+                                <input type="text" class="form-control" id="hub-phone">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="hub-email">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tên người quản lý</label>
+                                <input type="text" class="form-control" id="hub-manager">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Giờ làm việc</label>
+                                <input type="text" class="form-control" id="hub-hours" placeholder="VD: 08:00-18:00">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <textarea class="form-control" id="hub-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveHub()">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Thêm người dùng mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-user-form">
+                        <div class="mb-3">
+                            <label class="form-label">Họ tên <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="user-full-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="user-email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mật khẩu <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="user-password" required minlength="6">
+                            <small class="text-muted">Tối thiểu 6 ký tự</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" class="form-control" id="user-phone" pattern="[0-9]{9,11}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Địa chỉ</label>
+                            <textarea class="form-control" id="user-address" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vai trò <span class="text-danger">*</span></label>
+                            <select class="form-select" id="user-role" required>
+                                <option value="">-- Chọn vai trò --</option>
+                                <option value="shipper">Shipper</option>
+                                <option value="intake_staff">Nhân viên kho</option>
+                            </select>
+                            <small class="text-muted">Chỉ có thể tạo tài khoản Shipper hoặc Nhân viên kho</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="createUser()">Tạo người dùng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="js/admin.js" defer></script>
 </body>
 </html>

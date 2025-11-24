@@ -1,4 +1,7 @@
+const Joi = require('joi');
 const { pool } = require('../config/database');
+const { sendNotificationToUser } = require('./notificationController');
+const { logActivity } = require('../middleware/logging');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
@@ -76,7 +79,7 @@ const getDashboardStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting dashboard stats:', error);
+    console.error('Error getting dashboard stats:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải thống kê dashboard',
@@ -88,7 +91,14 @@ const getDashboardStats = async (req, res) => {
 // Get all orders with filters
 const getAllOrders = async (req, res) => {
   try {
-    const { status, limit = 50, offset = 0 } = req.query;
+    const { 
+      status, 
+      search, 
+      startDate, 
+      endDate, 
+      limit = 50, 
+      offset = 0 
+    } = req.query;
 
     let query = `
       SELECT 
@@ -103,45 +113,158 @@ const getAllOrders = async (req, res) => {
         o.status,
         o.created_at,
         o.updated_at,
-        u.name as customer_name,
+        o.shipper_id,
+        o.is_cod_collected,
+        o.is_cod_received,
+        o.cod_collected_at,
+        o.cod_received_at,
+        o.payment_method,
+        u.full_name as customer_name,
         u.email as customer_email,
-        u.phone as customer_phone
+        u.phone as customer_phone,
+        s.full_name as shipper_name,
+        s.phone as shipper_phone
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
+      LEFT JOIN users s ON o.shipper_id = s.id
     `;
 
+    const conditions = [];
     const params = [];
+    let paramCount = 1;
+
+    // Filter by status
     if (status) {
-      query += ' WHERE o.status = $1';
+      conditions.push(`o.status = $${paramCount}`);
       params.push(status);
+      paramCount++;
     }
 
-    query += ' ORDER BY o.created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
-    params.push(limit, offset);
+    // Filter by date range
+    if (startDate) {
+      conditions.push(`DATE(o.created_at) >= $${paramCount}`);
+      params.push(startDate);
+      paramCount++;
+    }
+    if (endDate) {
+      conditions.push(`DATE(o.created_at) <= $${paramCount}`);
+      params.push(endDate);
+      paramCount++;
+    }
+
+    // Search by order number, customer name, phone, or address
+    if (search) {
+      conditions.push(`(
+        o.order_number ILIKE $${paramCount} OR
+        u.full_name ILIKE $${paramCount} OR
+        u.phone ILIKE $${paramCount} OR
+        o.delivery_address ILIKE $${paramCount} OR
+        o.delivery_phone ILIKE $${paramCount}
+      )`);
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY o.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    params.push(parsedLimit, parsedOffset);
 
     const result = await pool.query(query, params);
 
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as count FROM orders';
+    // Get total count with same filters
+    let countQuery = `
+      SELECT COUNT(*) as count 
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+    `;
+    const countConditions = [];
+    const countParams = [];
+    let countParamCount = 1;
+
     if (status) {
-      countQuery += ' WHERE status = $1';
+      countConditions.push(`o.status = $${countParamCount}`);
+      countParams.push(status);
+      countParamCount++;
     }
-    const countResult = await pool.query(countQuery, status ? [status] : []);
+    if (startDate) {
+      countConditions.push(`DATE(o.created_at) >= $${countParamCount}`);
+      countParams.push(startDate);
+      countParamCount++;
+    }
+    if (endDate) {
+      countConditions.push(`DATE(o.created_at) <= $${countParamCount}`);
+      countParams.push(endDate);
+      countParamCount++;
+    }
+    if (search) {
+      countConditions.push(`(
+        o.order_number ILIKE $${countParamCount} OR
+        u.full_name ILIKE $${countParamCount} OR
+        u.phone ILIKE $${countParamCount} OR
+        o.delivery_address ILIKE $${countParamCount} OR
+        o.delivery_phone ILIKE $${countParamCount}
+      )`);
+      countParams.push(`%${search}%`);
+      countParamCount++;
+    }
+
+    if (countConditions.length > 0) {
+      countQuery += ' WHERE ' + countConditions.join(' AND ');
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
     const totalCount = parseInt(countResult.rows[0].count);
+
+    // Format orders with customer and shipper info
+    const formattedOrders = result.rows.map(row => ({
+      id: row.id,
+      order_number: row.order_number,
+      restaurant_name: row.restaurant_name,
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : row.items,
+      total_amount: parseFloat(row.total_amount || 0),
+      delivery_fee: parseFloat(row.delivery_fee || 0),
+      delivery_address: row.delivery_address,
+      delivery_phone: row.delivery_phone,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      payment_method: row.payment_method || 'cod',
+      is_cod: (row.payment_method === 'cod' || row.payment_method === 'COD'), // Derive from payment_method
+      is_cod_collected: row.is_cod_collected || false,
+      is_cod_received: row.is_cod_received || false,
+      cod_collected_at: row.cod_collected_at,
+      cod_received_at: row.cod_received_at,
+      cod_amount: parseFloat(row.total_amount || 0), // COD amount equals total amount for COD orders
+      customer: row.customer_name ? {
+        full_name: row.customer_name,
+        email: row.customer_email,
+        phone: row.customer_phone
+      } : null,
+      shipper: row.shipper_name ? {
+        full_name: row.shipper_name,
+        phone: row.shipper_phone
+      } : null
+    }));
 
     res.json({
       status: 'success',
       data: {
-        orders: result.rows,
+        orders: formattedOrders,
         pagination: {
           total: totalCount,
-          limit: parseInt(limit),
-          offset: parseInt(offset)
+          limit: parsedLimit,
+          offset: parsedOffset,
+          pages: Math.ceil(totalCount / parsedLimit)
         }
       }
     });
   } catch (error) {
-    console.error('Error getting orders:', error);
+    console.error('Error getting orders:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách đơn hàng',
@@ -158,7 +281,7 @@ const getOrderById = async (req, res) => {
     const result = await pool.query(
       `SELECT 
         o.*,
-        u.name as customer_name,
+        u.full_name as customer_name,
         u.email as customer_email,
         u.phone as customer_phone,
         u.address as customer_address
@@ -191,7 +314,7 @@ const getOrderById = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting order:', error);
+    console.error('Error getting order:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải thông tin đơn hàng',
@@ -229,6 +352,12 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
+    // Log activity
+    await logActivity(req, 'UPDATE_ORDER_STATUS', 'order', orderId, {
+      old_status: result.rows[0].status,
+      new_status: status
+    });
+
     // Emit socket event for real-time update
     const io = req.app.get('io');
     if (io) {
@@ -245,10 +374,151 @@ const updateOrderStatus = async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    console.error('Error updating order status:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi cập nhật trạng thái đơn hàng',
+      error: error.message
+    });
+  }
+};
+
+// Update order information (Admin can edit order details)
+const updateOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const {
+      restaurant_name,
+      delivery_address,
+      delivery_phone,
+      delivery_lat,
+      delivery_lng,
+      pickup_address,
+      pickup_lat,
+      pickup_lng,
+      recipient_name,
+      recipient_phone,
+      total_amount,
+      delivery_fee,
+      notes
+    } = req.body;
+
+    // Build dynamic update query
+    const updates = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (restaurant_name !== undefined) {
+      updates.push(`restaurant_name = $${paramCount}`);
+      params.push(restaurant_name);
+      paramCount++;
+    }
+    if (delivery_address !== undefined) {
+      updates.push(`delivery_address = $${paramCount}`);
+      params.push(delivery_address);
+      paramCount++;
+    }
+    if (delivery_phone !== undefined) {
+      updates.push(`delivery_phone = $${paramCount}`);
+      params.push(delivery_phone);
+      paramCount++;
+    }
+    if (delivery_lat !== undefined) {
+      updates.push(`delivery_lat = $${paramCount}`);
+      params.push(delivery_lat);
+      paramCount++;
+    }
+    if (delivery_lng !== undefined) {
+      updates.push(`delivery_lng = $${paramCount}`);
+      params.push(delivery_lng);
+      paramCount++;
+    }
+    if (pickup_address !== undefined) {
+      updates.push(`pickup_address = $${paramCount}`);
+      params.push(pickup_address);
+      paramCount++;
+    }
+    if (pickup_lat !== undefined) {
+      updates.push(`pickup_lat = $${paramCount}`);
+      params.push(pickup_lat);
+      paramCount++;
+    }
+    if (pickup_lng !== undefined) {
+      updates.push(`pickup_lng = $${paramCount}`);
+      params.push(pickup_lng);
+      paramCount++;
+    }
+    if (recipient_name !== undefined) {
+      updates.push(`recipient_name = $${paramCount}`);
+      params.push(recipient_name);
+      paramCount++;
+    }
+    if (recipient_phone !== undefined) {
+      updates.push(`recipient_phone = $${paramCount}`);
+      params.push(recipient_phone);
+      paramCount++;
+    }
+    if (total_amount !== undefined) {
+      updates.push(`total_amount = $${paramCount}`);
+      params.push(parseFloat(total_amount));
+      paramCount++;
+    }
+    if (delivery_fee !== undefined) {
+      updates.push(`delivery_fee = $${paramCount}`);
+      params.push(parseFloat(delivery_fee));
+      paramCount++;
+    }
+    if (notes !== undefined) {
+      updates.push(`notes = $${paramCount}`);
+      params.push(notes);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Không có thông tin nào để cập nhật'
+      });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    params.push(orderId);
+
+    const query = `
+      UPDATE orders 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng'
+      });
+    }
+
+    // Emit socket event for real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order-updated', {
+        orderId,
+        order: result.rows[0]
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Cập nhật thông tin đơn hàng thành công',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating order:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi cập nhật thông tin đơn hàng',
       error: error.message
     });
   }
@@ -265,10 +535,10 @@ const getActiveDeliveries = async (req, res) => {
         o.delivery_address,
         o.status,
         o.created_at,
-        u.name as customer_name,
+        u.full_name as customer_name,
         u.phone as customer_phone,
-        dt.current_latitude,
-        dt.current_longitude,
+        dt.latitude,
+        dt.longitude,
         dt.updated_at as last_location_update
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
@@ -286,7 +556,7 @@ const getActiveDeliveries = async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    console.error('Error getting active deliveries:', error);
+    console.error('Error getting active deliveries:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách giao hàng',
@@ -295,28 +565,86 @@ const getActiveDeliveries = async (req, res) => {
   }
 };
 
-// Get all users
+// Get all users with filters, search, and pagination
 const getAllUsers = async (req, res) => {
   try {
-    const { limit = 50, offset = 0 } = req.query;
+    const { 
+      role,           // Filter by role: customer, shipper, intake_staff, admin
+      search,         // Search by name or phone
+      limit = 50, 
+      offset = 0 
+    } = req.query;
 
-    const result = await pool.query(
-      `SELECT 
+    let query = `
+      SELECT 
         id,
-        name,
+        full_name,
         email,
         phone,
         address,
         created_at,
-        updated_at
+        updated_at,
+        role,
+        status
       FROM users
-      ORDER BY created_at DESC
-      LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
+      WHERE 1=1
+    `;
+    
+    const conditions = [];
+    const params = [];
+    let paramCount = 1;
 
-    // Get total count
-    const countResult = await pool.query('SELECT COUNT(*) as count FROM users');
+    // Filter by role
+    if (role) {
+      conditions.push(`role = $${paramCount}`);
+      params.push(role);
+      paramCount++;
+    }
+
+    // Search by name or phone
+    if (search) {
+      conditions.push(`(
+        full_name ILIKE $${paramCount} OR
+        phone ILIKE $${paramCount} OR
+        email ILIKE $${paramCount}
+      )`);
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    if (conditions.length > 0) {
+      query += ' AND ' + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    params.push(parsedLimit, parsedOffset);
+
+    const result = await pool.query(query, params);
+
+    // Get total count with same filters
+    let countQuery = 'SELECT COUNT(*) as count FROM users WHERE 1=1';
+    const countParams = [];
+    let countParamCount = 1;
+
+    if (role) {
+      countQuery += ` AND role = $${countParamCount}`;
+      countParams.push(role);
+      countParamCount++;
+    }
+
+    if (search) {
+      countQuery += ` AND (
+        full_name ILIKE $${countParamCount} OR
+        phone ILIKE $${countParamCount} OR
+        email ILIKE $${countParamCount}
+      )`;
+      countParams.push(`%${search}%`);
+      countParamCount++;
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
     const totalCount = parseInt(countResult.rows[0].count);
 
     res.json({
@@ -325,18 +653,423 @@ const getAllUsers = async (req, res) => {
         users: result.rows,
         pagination: {
           total: totalCount,
-          limit: parseInt(limit),
-          offset: parseInt(offset)
+          limit: parsedLimit,
+          offset: parsedOffset,
+          pages: Math.ceil(totalCount / parsedLimit)
         }
       }
     });
   } catch (error) {
-    console.error('Error getting users:', error);
+    console.error('Error getting users:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải danh sách người dùng',
       error: error.message
     });
+  }
+};
+
+const getShippers = async (req, res) => {
+  try {
+    const { status, limit = 50, offset = 0 } = req.query;
+    const params = ['shipper'];
+    let whereClause = 'WHERE u.role = $1';
+
+    if (status) {
+      params.push(status);
+      whereClause += ` AND u.status = $${params.length}`;
+    }
+
+    params.push(limit, offset);
+
+    const result = await pool.query(
+      `SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.address,
+        u.status,
+        u.created_at,
+        sp.vehicle_type,
+        sp.vehicle_plate,
+        sp.driver_license_number,
+        sp.identity_card_number,
+        sp.notes,
+        sp.approved_at,
+        sp.created_at AS profile_created_at,
+        sp.updated_at AS profile_updated_at
+      FROM users u
+      LEFT JOIN shipper_profiles sp ON sp.user_id = u.id
+      ${whereClause}
+      ORDER BY u.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({
+      status: 'success',
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error getting shippers:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải danh sách shipper',
+      error: error.message
+    });
+  }
+};
+
+const getShipperById = async (req, res) => {
+  try {
+    const { shipperId } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.address,
+        u.status,
+        u.created_at,
+        sp.vehicle_type,
+        sp.vehicle_plate,
+        sp.driver_license_number,
+        sp.identity_card_number,
+        sp.notes,
+        sp.approved_at,
+        sp.created_at AS profile_created_at,
+        sp.updated_at AS profile_updated_at
+      FROM users u
+      LEFT JOIN shipper_profiles sp ON sp.user_id = u.id
+      WHERE u.id = $1 AND u.role = 'shipper'`,
+      [shipperId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy shipper'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error getting shipper details:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải thông tin shipper',
+      error: error.message
+    });
+  }
+};
+
+// Get available shippers (approved and not overloaded)
+const getAvailableShippers = async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    // Get shippers who are approved and have less than 3 active orders
+    const result = await pool.query(
+      `SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.status,
+        sp.vehicle_type,
+        sp.vehicle_plate,
+        COUNT(o.id) FILTER (WHERE o.status IN ('processing', 'shipped', 'assigned_to_driver')) as active_orders_count
+      FROM users u
+      LEFT JOIN shipper_profiles sp ON sp.user_id = u.id
+      LEFT JOIN orders o ON o.shipper_id = u.id AND o.status IN ('processing', 'shipped', 'assigned_to_driver')
+      WHERE u.role = 'shipper' 
+        AND u.status = 'approved'
+      GROUP BY u.id, u.full_name, u.email, u.phone, u.status, sp.vehicle_type, sp.vehicle_plate
+      HAVING COUNT(o.id) FILTER (WHERE o.status IN ('processing', 'shipped', 'assigned_to_driver')) < 3
+      ORDER BY active_orders_count ASC, u.full_name ASC
+      LIMIT $1`,
+      [parseInt(limit, 10)]
+    );
+
+    res.json({
+      status: 'success',
+      data: result.rows.map(row => ({
+        id: row.id,
+        full_name: row.full_name,
+        email: row.email,
+        phone: row.phone,
+        vehicle_type: row.vehicle_type,
+        vehicle_plate: row.vehicle_plate,
+        active_orders_count: parseInt(row.active_orders_count || 0)
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting available shippers:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải danh sách shipper có sẵn',
+      error: error.message
+    });
+  }
+};
+
+// Assign orders to shipper
+const assignOrders = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { order_ids, shipper_id } = req.body;
+
+    // Validation
+    if (!Array.isArray(order_ids) || order_ids.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Danh sách đơn hàng không hợp lệ'
+      });
+    }
+
+    if (!shipper_id) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Vui lòng chọn shipper'
+      });
+    }
+
+    // Verify shipper exists and is approved
+    const shipperResult = await client.query(
+      `SELECT id, full_name, email, status FROM users 
+       WHERE id = $1 AND role = 'shipper' AND status = 'approved'`,
+      [shipper_id]
+    );
+
+    if (shipperResult.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Shipper không tồn tại hoặc chưa được duyệt'
+      });
+    }
+
+    const shipper = shipperResult.rows[0];
+
+    await client.query('BEGIN');
+
+    // Verify all orders exist and can be assigned
+    const ordersResult = await client.query(
+      `SELECT id, order_number, status, shipper_id 
+       FROM orders 
+       WHERE id = ANY($1::int[])`,
+      [order_ids]
+    );
+
+    if (ordersResult.rows.length !== order_ids.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Một số đơn hàng không tồn tại'
+      });
+    }
+
+    // Check if orders are already assigned or in invalid status
+    const invalidOrders = ordersResult.rows.filter(
+      order => order.shipper_id !== null || 
+               !['pending', 'processing'].includes(order.status)
+    );
+
+    if (invalidOrders.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: `Một số đơn hàng đã được gán hoặc không thể gán: ${invalidOrders.map(o => o.order_number).join(', ')}`
+      });
+    }
+
+    // Assign orders
+    const updateResult = await client.query(
+      `UPDATE orders 
+       SET shipper_id = $1, 
+           status = CASE WHEN status = 'pending' THEN 'processing' ELSE status END,
+           updated_at = NOW()
+       WHERE id = ANY($2::int[])
+       RETURNING id, order_number, status`,
+      [shipper_id, order_ids]
+    );
+
+    // Create status history entries
+    for (const order of updateResult.rows) {
+      await client.query(
+        `INSERT INTO order_status_history (order_id, status, notes, created_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [order.id, order.status, `Đơn hàng được gán cho shipper ${shipper.full_name} bởi admin`]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Send notifications to shipper
+    const { sendNotificationToUser } = require('./notificationController');
+    const orderNumbers = updateResult.rows.map(o => o.order_number).join(', ');
+    
+    sendNotificationToUser(
+      shipper_id,
+      'Bạn có đơn hàng mới được gán',
+      `Bạn đã được gán ${updateResult.rows.length} đơn hàng: ${orderNumbers}`,
+      'order_assigned',
+      null,
+      { order_ids, order_count: updateResult.rows.length }
+    ).catch(err => console.error('Notification error:', err));
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('orders-assigned', {
+        shipper_id,
+        order_ids: updateResult.rows.map(o => o.id),
+        orders: updateResult.rows
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: `Đã gán ${updateResult.rows.length} đơn hàng cho shipper ${shipper.full_name}`,
+      data: {
+        shipper: {
+          id: shipper.id,
+          full_name: shipper.full_name
+        },
+        orders: updateResult.rows
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error assigning orders:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi gán đơn hàng',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+};
+
+const updateShipperStatus = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { shipperId } = req.params;
+    const schema = Joi.object({
+      status: Joi.string().valid('pending', 'approved', 'rejected', 'suspended').required(),
+      notes: Joi.string().allow('', null)
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const userResult = await client.query(
+      `UPDATE users
+       SET status = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND role = 'shipper'
+       RETURNING id, full_name, email, status`,
+      [value.status, shipperId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy shipper'
+      });
+    }
+
+    const profileResult = await client.query(
+      `UPDATE shipper_profiles
+       SET notes = COALESCE($1, notes),
+           approved_at = CASE WHEN $2 = 'approved' THEN CURRENT_TIMESTAMP ELSE approved_at END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $3
+       RETURNING id`,
+      [value.notes || null, value.status, shipperId]
+    );
+
+    if (profileResult.rowCount === 0) {
+      await client.query(
+        `INSERT INTO shipper_profiles (
+          user_id, notes, approved_at
+        ) VALUES ($1, $2, CASE WHEN $3 = 'approved' THEN CURRENT_TIMESTAMP ELSE NULL END)
+        ON CONFLICT (user_id) DO UPDATE SET
+          notes = EXCLUDED.notes,
+          approved_at = CASE WHEN $3 = 'approved' THEN CURRENT_TIMESTAMP ELSE shipper_profiles.approved_at END,
+          updated_at = CURRENT_TIMESTAMP`,
+        [shipperId, value.notes || null, value.status]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const shipper = userResult.rows[0];
+
+    let notification = null;
+    switch (value.status) {
+      case 'approved':
+        notification = {
+          title: 'Tài khoản shipper đã được duyệt',
+          body: 'Chúc mừng! Bạn đã có thể đăng nhập và sử dụng ứng dụng shipper.'
+        };
+        break;
+      case 'rejected':
+        notification = {
+          title: 'Tài khoản shipper bị từ chối',
+          body: 'Hồ sơ của bạn chưa được chấp thuận. Vui lòng liên hệ quản trị viên để biết thêm chi tiết.'
+        };
+        break;
+      case 'suspended':
+        notification = {
+          title: 'Tài khoản shipper bị tạm khóa',
+          body: 'Tài khoản shipper của bạn đang bị tạm khóa. Vui lòng liên hệ quản trị viên.'
+        };
+        break;
+      default:
+        break;
+    }
+
+    if (notification) {
+      sendNotificationToUser(
+        shipper.id,
+        notification.title,
+        notification.body,
+        'shipper_status',
+        shipper.id,
+        { status: value.status }
+      ).catch(err => console.error('Notification error:', err));
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Cập nhật trạng thái shipper thành công',
+      data: shipper
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating shipper status:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi cập nhật trạng thái shipper',
+      error: error.message
+    });
+  } finally {
+    client.release();
   }
 };
 
@@ -400,10 +1133,486 @@ const getAnalytics = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting analytics:', error);
+    console.error('Error getting analytics:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Lỗi khi tải dữ liệu thống kê',
+      error: error.message
+    });
+  }
+};
+
+// US-19: Confirm COD collection (Shipper đã thu COD từ khách)
+const confirmCodCollection = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { order_id } = req.body;
+    const adminId = req.user.id;
+
+    if (!order_id) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'order_id là bắt buộc'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Get order details
+    const orderResult = await client.query(
+      `SELECT id, order_number, total_amount, delivery_fee, is_cod_collected, status
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [order_id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng'
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (order.is_cod_collected) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'COD đã được xác nhận thu trước đó'
+      });
+    }
+
+    // Update order
+    await client.query(
+      `UPDATE orders
+       SET is_cod_collected = TRUE,
+           cod_collected_at = CURRENT_TIMESTAMP,
+           cod_collected_by = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [adminId, order_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      status: 'success',
+      message: 'Xác nhận thu COD thành công',
+      data: {
+        order: {
+          id: order.id,
+          order_number: order.order_number,
+          is_cod_collected: true,
+          cod_collected_at: new Date()
+        }
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('confirmCodCollection error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể xác nhận thu COD',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// US-12: Confirm COD received (Shipper đã nộp COD về công ty)
+const confirmCodReceived = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { order_id } = req.body;
+    const adminId = req.user.id;
+
+    if (!order_id) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'order_id là bắt buộc'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Get order details
+    const orderResult = await client.query(
+      `SELECT id, order_number, total_amount, delivery_fee, is_cod_collected, is_cod_received, status
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [order_id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy đơn hàng'
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (!order.is_cod_collected) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'COD chưa được xác nhận thu. Vui lòng xác nhận thu trước.'
+      });
+    }
+
+    if (order.is_cod_received) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        status: 'error',
+        message: 'COD đã được xác nhận nhận trước đó'
+      });
+    }
+
+    // Update order
+    await client.query(
+      `UPDATE orders
+       SET is_cod_received = TRUE,
+           cod_received_at = CURRENT_TIMESTAMP,
+           cod_received_by = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [adminId, order_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      status: 'success',
+      message: 'Xác nhận nhận COD thành công',
+      data: {
+        order: {
+          id: order.id,
+          order_number: order.order_number,
+          is_cod_received: true,
+          cod_received_at: new Date()
+        }
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('confirmCodReceived error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Không thể xác nhận nhận COD',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// Create internal user account (Shipper/Intake Staff) - Admin only
+const createUser = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const schema = Joi.object({
+      email: Joi.string().email().required(),
+      password: Joi.string().min(6).required(),
+      full_name: Joi.string().min(2).required(),
+      phone: Joi.string().pattern(/^[0-9]{9,11}$/).optional(),
+      address: Joi.string().optional(),
+      role: Joi.string().valid('shipper', 'intake_staff').required() // Admin cannot create admin accounts
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    const { email, password, full_name, phone, address, role } = value;
+
+    await client.query('BEGIN');
+
+    // Check if user already exists
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        status: 'error',
+        message: 'Email đã được sử dụng'
+      });
+    }
+
+    // Hash password
+    const bcrypt = require('bcryptjs');
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user with status 'active' for internal accounts
+    const result = await client.query(
+      `INSERT INTO users (email, password, full_name, phone, address, role, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active')
+       RETURNING id, email, full_name, phone, address, role, status, created_at`,
+      [email, hashedPassword, full_name, phone || null, address || null, role]
+    );
+
+    // If shipper, create shipper profile
+    if (role === 'shipper') {
+      await client.query(
+        `INSERT INTO shipper_profiles (user_id, approved_at)
+         VALUES ($1, NOW())
+         ON CONFLICT (user_id) DO NOTHING`,
+        [result.rows[0].id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Log activity
+    await logActivity(req, 'CREATE_USER', 'user', result.rows[0].id, {
+      email: email,
+      role: role,
+      created_by: req.user.id
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: `Tạo tài khoản ${role === 'shipper' ? 'shipper' : 'nhân viên kho'} thành công`,
+      data: {
+        user: result.rows[0]
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating user:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tạo tài khoản',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// Update user status (Lock/Unlock account)
+const updateUserStatus = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const schema = Joi.object({
+      status: Joi.string().valid('active', 'suspended').required()
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error.details[0].message
+      });
+    }
+
+    const { status } = value;
+
+    await client.query('BEGIN');
+
+    // Check if user exists and is not admin
+    const userResult = await client.query(
+      'SELECT id, email, full_name, role FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Prevent locking/unlocking admin accounts
+    if (user.role === 'admin') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        status: 'error',
+        message: 'Không thể khóa/mở khóa tài khoản admin'
+      });
+    }
+
+    // Update status
+    const result = await client.query(
+      `UPDATE users 
+       SET status = $1, updated_at = NOW() 
+       WHERE id = $2 
+       RETURNING id, email, full_name, role, status`,
+      [status, id]
+    );
+
+    await client.query('COMMIT');
+
+    // Log activity
+    await logActivity(req, 'UPDATE_USER_STATUS', 'user', id, {
+      user_email: user.email,
+      user_name: user.full_name,
+      old_status: user.status,
+      new_status: status
+    });
+
+    res.json({
+      status: 'success',
+      message: status === 'suspended' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating user status:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi cập nhật trạng thái người dùng',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+};
+
+// Get system logs (US-28)
+const getSystemLogs = async (req, res) => {
+  try {
+    const { 
+      action,           // Filter by action
+      target_type,     // Filter by target type
+      user_id,         // Filter by user
+      limit = 20,       // Default limit 20 as per requirements
+      offset = 0 
+    } = req.query;
+
+    let query = `
+      SELECT 
+        sl.id,
+        sl.user_id,
+        sl.action,
+        sl.target_type,
+        sl.target_id,
+        sl.ip_address,
+        sl.user_agent,
+        sl.details,
+        sl.created_at,
+        u.full_name as user_name,
+        u.email as user_email,
+        u.role as user_role
+      FROM system_logs sl
+      LEFT JOIN users u ON sl.user_id = u.id
+      WHERE 1=1
+    `;
+    
+    const conditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    // Filter by action
+    if (action) {
+      conditions.push(`sl.action = $${paramCount}`);
+      params.push(action);
+      paramCount++;
+    }
+
+    // Filter by target type
+    if (target_type) {
+      conditions.push(`sl.target_type = $${paramCount}`);
+      params.push(target_type);
+      paramCount++;
+    }
+
+    // Filter by user
+    if (user_id) {
+      conditions.push(`sl.user_id = $${paramCount}`);
+      params.push(user_id);
+      paramCount++;
+    }
+
+    if (conditions.length > 0) {
+      query += ' AND ' + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY sl.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    params.push(parsedLimit, parsedOffset);
+
+    const result = await pool.query(query, params);
+
+    // Get total count with same filters
+    let countQuery = 'SELECT COUNT(*) as count FROM system_logs WHERE 1=1';
+    const countParams = [];
+    let countParamCount = 1;
+
+    if (action) {
+      countQuery += ` AND action = $${countParamCount}`;
+      countParams.push(action);
+      countParamCount++;
+    }
+
+    if (target_type) {
+      countQuery += ` AND target_type = $${countParamCount}`;
+      countParams.push(target_type);
+      countParamCount++;
+    }
+
+    if (user_id) {
+      countQuery += ` AND user_id = $${countParamCount}`;
+      countParams.push(user_id);
+      countParamCount++;
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // Format logs
+    const formattedLogs = result.rows.map(row => ({
+      id: row.id,
+      user: row.user_id ? {
+        id: row.user_id,
+        name: row.user_name,
+        email: row.user_email,
+        role: row.user_role
+      } : null,
+      action: row.action,
+      target_type: row.target_type,
+      target_id: row.target_id,
+      ip_address: row.ip_address,
+      user_agent: row.user_agent,
+      details: typeof row.details === 'string' ? JSON.parse(row.details) : row.details,
+      created_at: row.created_at
+    }));
+
+    res.json({
+      status: 'success',
+      data: {
+        logs: formattedLogs,
+        pagination: {
+          total: totalCount,
+          limit: parsedLimit,
+          offset: parsedOffset,
+          pages: Math.ceil(totalCount / parsedLimit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting system logs:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Lỗi khi tải nhật ký hệ thống',
       error: error.message
     });
   }
@@ -414,7 +1623,18 @@ module.exports = {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  updateOrder,
   getActiveDeliveries,
   getAllUsers,
-  getAnalytics
+  createUser,
+  updateUserStatus,
+  getAnalytics,
+  getShippers,
+  getShipperById,
+  updateShipperStatus,
+  getAvailableShippers,
+  assignOrders,
+  confirmCodCollection,
+  confirmCodReceived,
+  getSystemLogs
 };

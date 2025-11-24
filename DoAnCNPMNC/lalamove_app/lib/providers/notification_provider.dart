@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/notification_model.dart';
@@ -11,8 +11,8 @@ class NotificationProvider with ChangeNotifier {
   List<NotificationModel> _notifications = [];
   int _unreadCount = 0;
   bool _isLoading = false;
+  IO.Socket? _socket;
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   List<NotificationModel> get notifications => _notifications;
@@ -25,51 +25,21 @@ class NotificationProvider with ChangeNotifier {
   List<NotificationModel> get readNotifications =>
       _notifications.where((n) => n.isRead).toList();
 
-  // Initialize Firebase Cloud Messaging
+  // Initialize notifications with Socket.IO
   Future<void> initializeNotifications() async {
     try {
-      // Request permission
-      NotificationSettings settings = await _firebaseMessaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      // Initialize local notifications first
+      await _initializeLocalNotifications();
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('User granted permission');
-        
-        // Get FCM token
-        String? token = await _firebaseMessaging.getToken();
-        if (token != null) {
-          print('FCM Token: $token');
-          await _saveFCMToken(token);
-        }
+      // Request notification permissions
+      await _requestPermissions();
 
-        // Listen to token refresh
-        _firebaseMessaging.onTokenRefresh.listen(_saveFCMToken);
+      // Connect to Socket.IO
+      await _connectSocket();
 
-        // Initialize local notifications
-        await _initializeLocalNotifications();
-
-        // Handle foreground messages
-        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-        // Handle background messages
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
-
-        // Check for initial message (app opened from terminated state)
-        RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-        if (initialMessage != null) {
-          _handleBackgroundMessage(initialMessage);
-        }
-
-        // Fetch notifications from server
-        await fetchNotifications();
-        await fetchUnreadCount();
-      } else {
-        print('User declined or has not accepted permission');
-      }
+      // Fetch notifications from server
+      await fetchNotifications();
+      await fetchUnreadCount();
     } catch (e) {
       print('Error initializing notifications: $e');
     }
@@ -97,61 +67,159 @@ class NotificationProvider with ChangeNotifier {
     );
   }
 
-  Future<void> _saveFCMToken(String token) async {
+  Future<void> _requestPermissions() async {
+    // Request permissions for local notifications
+    final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidPlugin != null) {
+      final granted = await androidPlugin.requestNotificationsPermission();
+      if (granted == true) {
+        print('✅ Notification permissions granted');
+      }
+    }
+
+    final iosPlugin = _localNotifications.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    
+    if (iosPlugin != null) {
+      final granted = await iosPlugin.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (granted == true) {
+        print('✅ Notification permissions granted');
+      }
+    }
+  }
+
+  Future<void> _connectSocket() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedToken = await prefs.getString('token');
+      final token = prefs.getString(StorageKeys.tokenKey);
+      final userJson = prefs.getString(StorageKeys.userKey);
 
-      if (savedToken == null) {
-        print('No auth token found, skipping FCM token save');
+      if (token == null || userJson == null) {
+        print('No auth token or user data found, skipping Socket.IO connection');
         return;
       }
 
-      final response = await http.post(
-        Uri.parse('${AppConstants.apiBaseUrl}/notifications/token'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $savedToken',
-        },
-        body: json.encode({'fcm_token': token}),
+      final userData = json.decode(userJson);
+      final userId = userData['id'];
+
+      if (userId == null) {
+        print('User ID not found, skipping Socket.IO connection');
+        return;
+      }
+
+      // Disconnect existing socket if any
+      _disconnectSocket();
+
+      // Connect to Socket.IO server
+      _socket = IO.io(
+        AppConfig.socketUrl,
+        IO.OptionBuilder()
+            .setTransports(['websocket', 'polling'])
+            .setExtraHeaders({'Authorization': 'Bearer $token'})
+            .enableAutoConnect()
+            .build(),
       );
 
-      if (response.statusCode == 200) {
-        print('FCM token saved to server');
-      } else {
-        print('Failed to save FCM token: ${response.statusCode}');
-      }
+      _socket!.onConnect((_) {
+        print('✅ Socket.IO connected for notifications');
+        
+        // Register user with backend (send as integer to match backend expectations)
+        final userIdInt = userId is int ? userId : (userId is String ? int.tryParse(userId) : null);
+        if (userIdInt != null) {
+          _socket!.emit('register-user', userIdInt);
+          print('📝 Registered user $userIdInt with Socket.IO server');
+        } else {
+          print('⚠️ Invalid user ID format: $userId');
+        }
+      });
+
+      _socket!.onDisconnect((_) {
+        print('⚠️ Socket.IO disconnected');
+      });
+
+      _socket!.onError((error) {
+        print('❌ Socket.IO error: $error');
+      });
+
+      // Listen for notifications
+      _socket!.on('notification', (data) {
+        print('📬 Received notification via Socket.IO');
+        print('📬 Notification data: $data');
+        
+        try {
+          // Ensure data is a Map
+          Map<String, dynamic> notificationData;
+          if (data is Map) {
+            notificationData = Map<String, dynamic>.from(data);
+          } else if (data is String) {
+            notificationData = json.decode(data) as Map<String, dynamic>;
+          } else {
+            print('⚠️ Invalid notification data format: ${data.runtimeType}');
+            return;
+          }
+          
+          _handleIncomingNotification(notificationData);
+        } catch (e) {
+          print('❌ Error parsing notification data: $e');
+          print('❌ Raw data: $data');
+        }
+      });
+
+      // Handle ping/pong to keep connection alive
+      _socket!.on('ping', (_) {
+        _socket!.emit('pong', {'timestamp': DateTime.now().millisecondsSinceEpoch});
+      });
+
     } catch (e) {
-      print('Error saving FCM token: $e');
+      print('Error connecting Socket.IO: $e');
     }
   }
 
-  void _handleForegroundMessage(RemoteMessage message) {
-    print('Foreground message: ${message.notification?.title}');
-    
-    // Show local notification
-    _showLocalNotification(message);
-    
-    // Refresh notifications list
-    fetchNotifications();
-    fetchUnreadCount();
-  }
-
-  void _handleBackgroundMessage(RemoteMessage message) {
-    print('Background message: ${message.notification?.title}');
-    
-    // Handle navigation based on notification data
-    if (message.data['type'] == 'order' && message.data['reference_id'] != null) {
-      // TODO: Navigate to order detail
-      print('Navigate to order: ${message.data['reference_id']}');
+  void _disconnectSocket() {
+    if (_socket != null) {
+      _socket!.disconnect();
+      _socket!.dispose();
+      _socket = null;
     }
-    
-    // Refresh notifications
-    fetchNotifications();
-    fetchUnreadCount();
   }
 
-  Future<void> _showLocalNotification(RemoteMessage message) async {
+  void _handleIncomingNotification(Map<String, dynamic> data) {
+    try {
+      print('📱 Handling incoming notification...');
+      print('📱 Title: ${data['title']}');
+      print('📱 Body: ${data['body']}');
+      
+      // Show local notification
+      final title = data['title']?.toString() ?? 'Thông báo';
+      final body = data['body']?.toString() ?? '';
+      final notificationData = data['data'] is Map 
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : <String, dynamic>{};
+      
+      _showLocalNotification(title, body, notificationData);
+
+      // Refresh notifications list
+      Future.delayed(const Duration(milliseconds: 500), () {
+        fetchNotifications();
+        fetchUnreadCount();
+      });
+    } catch (e) {
+      print('❌ Error handling incoming notification: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
+    }
+  }
+
+  Future<void> _showLocalNotification(
+    String title,
+    String body,
+    Map<String, dynamic> data,
+  ) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'lalamove_channel',
@@ -175,11 +243,11 @@ class NotificationProvider with ChangeNotifier {
     );
 
     await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? 'Lalamove',
-      message.notification?.body ?? '',
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
       platformChannelSpecifics,
-      payload: json.encode(message.data),
+      payload: json.encode(data),
     );
   }
 
@@ -192,13 +260,13 @@ class NotificationProvider with ChangeNotifier {
   }
 
   // Fetch notifications from server
-  Future<void> fetchNotifications({bool isRead, String? type}) async {
+  Future<void> fetchNotifications({bool? isRead, String? type}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString(StorageKeys.tokenKey);
 
       if (token == null) {
         print('No auth token found');
@@ -207,7 +275,7 @@ class NotificationProvider with ChangeNotifier {
         return;
       }
 
-      String url = '${AppConstants.apiBaseUrl}/notifications?limit=50';
+      String url = '${AppConfig.apiBaseUrl}/notifications?limit=50';
       if (isRead != null) {
         url += '&is_read=$isRead';
       }
@@ -245,12 +313,12 @@ class NotificationProvider with ChangeNotifier {
   Future<void> fetchUnreadCount() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString(StorageKeys.tokenKey);
 
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse('${AppConstants.apiBaseUrl}/notifications/unread-count'),
+        Uri.parse('${AppConfig.apiBaseUrl}/notifications/unread-count'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -273,12 +341,12 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAsRead(int notificationId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString(StorageKeys.tokenKey);
 
       if (token == null) return;
 
       final response = await http.put(
-        Uri.parse('${AppConstants.apiBaseUrl}/notifications/$notificationId/read'),
+        Uri.parse('${AppConfig.apiBaseUrl}/notifications/$notificationId/read'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -315,12 +383,12 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAllAsRead() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString(StorageKeys.tokenKey);
 
       if (token == null) return;
 
       final response = await http.put(
-        Uri.parse('${AppConstants.apiBaseUrl}/notifications/read-all'),
+        Uri.parse('${AppConfig.apiBaseUrl}/notifications/read-all'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -341,12 +409,12 @@ class NotificationProvider with ChangeNotifier {
   Future<void> deleteNotification(int notificationId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString(StorageKeys.tokenKey);
 
       if (token == null) return;
 
       final response = await http.delete(
-        Uri.parse('${AppConstants.apiBaseUrl}/notifications/$notificationId'),
+        Uri.parse('${AppConfig.apiBaseUrl}/notifications/$notificationId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -363,14 +431,19 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  // Request permission
-  Future<bool> requestPermission() async {
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+  // Reconnect Socket.IO (call this after login)
+  Future<void> reconnect() async {
+    await _connectSocket();
+  }
 
-    return settings.authorizationStatus == AuthorizationStatus.authorized;
+  // Disconnect Socket.IO (call this on logout)
+  void disconnect() {
+    _disconnectSocket();
+  }
+
+  @override
+  void dispose() {
+    _disconnectSocket();
+    super.dispose();
   }
 }
