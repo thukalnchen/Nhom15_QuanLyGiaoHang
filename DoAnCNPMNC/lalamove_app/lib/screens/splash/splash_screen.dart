@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../utils/constants.dart';
 import '../auth/login_screen.dart';
 import '../customer/home/home_screen.dart' as customer_home;
@@ -36,6 +37,15 @@ class _SplashScreenState extends State<SplashScreen> {
     if (authProvider.isAuthenticated && authProvider.user != null) {
       final user = authProvider.user!;
       print('✅ User authenticated: ${user.email} (${user.role})');
+      
+      // Initialize push notifications
+      try {
+        final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+        await notificationProvider.initializeNotifications();
+        print('✅ Push notifications initialized');
+      } catch (e) {
+        print('⚠️ Failed to initialize notifications: $e');
+      }
       
       // Navigate based on role
       _navigateToRoleScreen(user.role);

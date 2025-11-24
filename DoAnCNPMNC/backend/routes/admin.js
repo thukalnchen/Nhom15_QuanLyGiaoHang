@@ -4,6 +4,8 @@ const {
   getDashboardStats,
   getAllOrders,
   getAllUsers,
+  createUser,
+  updateUserStatus,
   updateOrderStatus,
   updateOrder,
   getOrderById,
@@ -37,6 +39,8 @@ router.get('/deliveries/active', getActiveDeliveries);
 
 // Users management
 router.get('/users', getAllUsers);
+router.post('/users', createUser);
+router.patch('/users/:id/status', updateUserStatus);
 
 // Shipper management
 router.get('/shippers', getShippers);
@@ -50,5 +54,13 @@ router.get('/analytics', getAnalytics);
 // US-19 & US-12: COD Confirmation
 router.post('/payments/confirm-collection', confirmCodCollection);
 router.post('/payments/confirm-received', confirmCodReceived);
+
+// US-27: Admin notification management
+const { sendBroadcastNotification } = require('../controllers/notificationController');
+router.post('/notifications/send', sendBroadcastNotification);
+
+// US-28: System logs
+const { getSystemLogs } = require('../controllers/adminController');
+router.get('/logs', getSystemLogs);
 
 module.exports = router;

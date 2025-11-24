@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const { pool } = require('../config/database');
 const { generateToken } = require('../middleware/auth');
+const { logActivity } = require('../middleware/logging');
 
 // Validation schemas
 const registerSchema = Joi.object({
@@ -277,6 +278,15 @@ const login = async (req, res) => {
       email: user.email,
       role: user.role
     });
+
+    // Log login activity
+    await logActivity(
+      { user: { id: user.id }, ip: req.ip, headers: req.headers },
+      'LOGIN',
+      'user',
+      user.id,
+      { email: user.email, role: user.role }
+    );
 
     res.json({
       status: 'success',

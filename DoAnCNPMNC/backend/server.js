@@ -192,6 +192,13 @@ app.get('/api/health', (req, res) => {
 // Track active connections to prevent memory leaks
 const activeConnections = new Map();
 
+// Initialize Socket Notification Service
+const SocketNotificationService = require('./services/socketNotificationService');
+const socketNotificationService = new SocketNotificationService(io);
+
+// Make socketNotificationService available to other modules
+app.set('socketNotificationService', socketNotificationService);
+
 io.on('connection', (socket) => {
   console.log(`[Socket.IO] User connected: ${socket.id}, transport: ${socket.conn.transport.name}`);
   
@@ -201,9 +208,29 @@ io.on('connection', (socket) => {
     connectedAt: Date.now(),
     lastPong: Date.now(),
     transport: socket.conn.transport.name,
-    rooms: new Set()
+    rooms: new Set(),
+    userId: null // Will be set when user authenticates
   };
   activeConnections.set(socket.id, connectionInfo);
+
+  // Handle user authentication and registration for notifications
+  socket.on('register-user', (userId) => {
+    if (userId) {
+      // Convert to integer if it's a string
+      const userIdInt = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+      
+      if (!isNaN(userIdInt)) {
+        connectionInfo.userId = userIdInt;
+        socketNotificationService.registerUserSocket(userIdInt, socket.id);
+        socket.join(`user-${userIdInt}`); // Join user-specific room
+        console.log(`[Socket.IO] User ${userIdInt} registered for notifications on socket ${socket.id}`);
+      } else {
+        console.warn(`[Socket.IO] Invalid user ID format: ${userId}`);
+      }
+    } else {
+      console.warn(`[Socket.IO] Empty user ID received on socket ${socket.id}`);
+    }
+  });
 
   // Monitor transport changes with error handling (disabled since upgrades are off)
   socket.conn.on('upgrade', () => {
@@ -273,6 +300,14 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', (reason) => {
     clearInterval(pingInterval);
+    
+    // Unregister user socket for notifications
+    if (connectionInfo.userId) {
+      socketNotificationService.unregisterUserSocket(connectionInfo.userId, socket.id);
+    } else {
+      socketNotificationService.unregisterSocket(socket.id);
+    }
+    
     activeConnections.delete(socket.id);
     
     const uptime = Math.floor((Date.now() - connectionInfo.connectedAt) / 1000);
@@ -327,8 +362,9 @@ setInterval(() => {
   }
 }, 60000); // Log stats every minute
 
-// Make io available to routes
+// Make io and socketNotificationService available to routes
 app.set('io', io);
+app.set('socketNotificationService', socketNotificationService);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

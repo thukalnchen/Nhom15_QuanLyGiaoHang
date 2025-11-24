@@ -97,8 +97,8 @@ class NotificationProvider with ChangeNotifier {
   Future<void> _connectSocket() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(StorageKeys.tokenKey);
-      final userJson = prefs.getString(StorageKeys.userKey);
+      final token = prefs.getString(StorageKeys.token);
+      final userJson = prefs.getString(StorageKeys.user);
 
       if (token == null || userJson == null) {
         print('No auth token or user data found, skipping Socket.IO connection');
@@ -222,9 +222,9 @@ class NotificationProvider with ChangeNotifier {
   ) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'lalamove_channel',
-      'Lalamove Notifications',
-      channelDescription: 'Notifications for Lalamove orders and updates',
+      'shipper_channel',
+      'Shipper Notifications',
+      channelDescription: 'Notifications for Shipper orders and updates',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
@@ -266,7 +266,7 @@ class NotificationProvider with ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(StorageKeys.tokenKey);
+      final token = prefs.getString(StorageKeys.token);
 
       if (token == null) {
         print('No auth token found');
@@ -313,7 +313,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> fetchUnreadCount() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(StorageKeys.tokenKey);
+      final token = prefs.getString(StorageKeys.token);
 
       if (token == null) return;
 
@@ -341,7 +341,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAsRead(int notificationId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(StorageKeys.tokenKey);
+      final token = prefs.getString(StorageKeys.token);
 
       if (token == null) return;
 
@@ -383,7 +383,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAllAsRead() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(StorageKeys.tokenKey);
+      final token = prefs.getString(StorageKeys.token);
 
       if (token == null) return;
 
@@ -409,7 +409,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> deleteNotification(int notificationId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(StorageKeys.tokenKey);
+      final token = prefs.getString(StorageKeys.token);
 
       if (token == null) return;
 
