@@ -4,12 +4,20 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class AppConfig {
   static const String appName = 'Lalamove Shipper';
   static const String appVersion = '1.0.0';
+  
+  // IMPORTANT: Set these for your development environment
+  static const String laptopIp = '192.168.1.173'; // ⚠️ Your laptop's IP
+  static const bool usePhysicalDevice = true;     // ⚠️ false for Android Emulator
 
-  static final String apiBaseUrl =
-      kIsWeb ? 'http://localhost:3000/api' : 'http://10.0.2.2:3000/api';
+  static String get apiBaseUrl {
+    if (kIsWeb) return 'http://localhost:3000/api';
+    return usePhysicalDevice ? 'http://$laptopIp:3000/api' : 'http://10.0.2.2:3000/api';
+  }
 
-  static final String socketUrl =
-      kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+  static String get socketUrl {
+    if (kIsWeb) return 'http://localhost:3000';
+    return usePhysicalDevice ? 'http://$laptopIp:3000' : 'http://10.0.2.2:3000';
+  }
 }
 
 class ApiEndpoints {
