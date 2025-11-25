@@ -108,6 +108,16 @@
                         Đối soát COD
                         <span class="nav-link__indicator"></span>
                     </a>
+                    <a class="nav-link" href="#" onclick="showNotifications()">
+                        <i class="fas fa-bell"></i>
+                        Gửi thông báo
+                        <span class="nav-link__indicator"></span>
+                    </a>
+                    <a class="nav-link" href="#" onclick="showLogs()">
+                        <i class="fas fa-history"></i>
+                        Nhật ký hệ thống
+                        <span class="nav-link__indicator"></span>
+                    </a>
                 </nav>
             </div>
         </aside>
@@ -189,7 +199,18 @@
 
                 <div class="row g-4 mt-1">
                     <div class="col-lg-8">
-                        <div class="card h-100">
+                        <div class="card h-10    gianduykhanh@gmail.com	3456789012	Shipper	Đã khóa	04:11 12/11/2025	
+                        10	Administrator	admin@gmail.com	N/A	Admin	Hoạt động	02:04 12/11/2025	
+                        9	Lê Quang Khải	lequangkhai@gmail.com	0382593912	Shipper	Đã khóa	01:36 12/11/2025	
+                        8	Lê Quang Khải	lequangkhai11072005@gmail.com	0382593912	Khách hàng	Hoạt động	00:16 12/11/2025	
+                        7	Tran Trong Khang	khanggialata123@gmail.com	0812938948	Khách hàng	Hoạt động	22:08 11/11/2025	
+                        6	Test Customer	customer@test.com	0909123456	Khách hàng	Hoạt động	12:54 08/11/2025	
+                        5	Test customer intake	test123@gmail.com	0812938948	Khách hàng	Hoạt động	12:47 08/11/2025	
+                        4	Nhân Viên Kho	staff@intake.com	0909123456	Nhân viên kho	Hoạt động	12:19 08/11/2025	
+                        3	Nguyễn Tài Xế Test	driver.test@lalamove.com	0923456789	driver	Hoạt động	22:37 06/11/2025	
+                        2	trongkhang	test@gmail.com	0812938948	Khách hàng	Hoạt động	01:30 28/10/2025	
+                        1	TrongKahgn	khanggialata@gmail.com	0812938948	Khách hàng	Hoạt động	09:26 15/10/2025	
+                        0">
                             <div class="card-header card-header--tight">
                                 <h5 class="card-title mb-0">Thống kê đơn hàng theo ngày</h5>
                                 <span class="card-subtitle">7 ngày gần nhất</span>
@@ -414,16 +435,35 @@
             <section id="users-section" class="section-block" style="display: none;">
                 <div class="section-header">
                     <div>
-                        <p class="section-eyebrow">Khách hàng doanh nghiệp & cá nhân</p>
+                        <p class="section-eyebrow">Quản lý tập trung người dùng</p>
                         <h1 class="section-title">
                             <i class="fas fa-users me-2"></i>
                             Quản lý người dùng
                         </h1>
                     </div>
                     <div class="section-actions">
-                        <button class="btn btn-primary" onclick="refreshUsers()">
-                            <i class="fas fa-sync-alt me-2"></i>Làm mới
-                        </button>
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            <div class="filter-group">
+                                <label for="user-role-filter" class="form-label mb-0">Vai trò</label>
+                                <select class="form-select" id="user-role-filter" onchange="filterUsers()">
+                                    <option value="">Tất cả</option>
+                                    <option value="customer">Khách hàng</option>
+                                    <option value="shipper">Shipper</option>
+                                    <option value="intake_staff">Nhân viên kho</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="user-search-filter" class="form-label mb-0">Tìm kiếm</label>
+                                <input type="text" class="form-control" id="user-search-filter" placeholder="Tên, SĐT, Email..." onkeyup="if(event.key==='Enter') filterUsers()">
+                            </div>
+                            <button class="btn btn-primary" onclick="refreshUsers()">
+                                <i class="fas fa-sync-alt me-2"></i>Làm mới
+                            </button>
+                            <button class="btn btn-success" onclick="showCreateUserModal()">
+                                <i class="fas fa-plus me-2"></i>Thêm người dùng
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -437,13 +477,151 @@
                                         <th>Tên</th>
                                         <th>Email</th>
                                         <th>Số điện thoại</th>
-                                        <th>Địa chỉ</th>
+                                        <th>Vai trò</th>
+                                        <th>Trạng thái</th>
                                         <th>Ngày tạo</th>
                                         <th class="text-center">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody id="users-table"></tbody>
                             </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center" id="users-pagination">
+                            <!-- Pagination will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-27: Notifications Management Section -->
+            <section id="notifications-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Hệ thống thông báo chủ động</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-bell me-2"></i>
+                            Gửi thông báo
+                        </h1>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <form id="notification-form" onsubmit="sendNotification(event)">
+                            <div class="mb-3">
+                                <label class="form-label">Tiêu đề <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="notification-title" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nội dung <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="notification-content" rows="5" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Đối tượng nhận <span class="text-danger">*</span></label>
+                                <select class="form-select" id="notification-recipient-type" required onchange="handleRecipientTypeChange()">
+                                    <option value="">-- Chọn đối tượng --</option>
+                                    <option value="all">Tất cả người dùng</option>
+                                    <option value="role">Theo vai trò</option>
+                                    <option value="user">Người dùng cụ thể</option>
+                                </select>
+                            </div>
+                            <div class="mb-3" id="recipient-value-group" style="display: none;">
+                                <label class="form-label" id="recipient-value-label">Giá trị</label>
+                                <select class="form-select" id="notification-recipient-role" style="display: none;">
+                                    <option value="">-- Chọn vai trò --</option>
+                                    <option value="customer">Khách hàng</option>
+                                    <option value="shipper">Shipper</option>
+                                    <option value="intake_staff">Nhân viên kho</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <input type="number" class="form-control" id="notification-recipient-user" style="display: none;" placeholder="Nhập ID người dùng">
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="notification-send-email" checked>
+                                    <label class="form-check-label" for="notification-send-email">
+                                        Gửi email
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="notification-send-push" checked>
+                                    <label class="form-check-label" for="notification-send-push">
+                                        Gửi thông báo đẩy (Push notification)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Gửi thông báo
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="resetNotificationForm()">
+                                    <i class="fas fa-redo me-2"></i>Làm mới
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- US-28: System Logs Section -->
+            <section id="logs-section" class="section-block" style="display: none;">
+                <div class="section-header">
+                    <div>
+                        <p class="section-eyebrow">Giám sát hệ thống</p>
+                        <h1 class="section-title">
+                            <i class="fas fa-history me-2"></i>
+                            Nhật ký hoạt động
+                        </h1>
+                    </div>
+                    <div class="section-actions">
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            <div class="filter-group">
+                                <label for="log-action-filter" class="form-label mb-0">Hành động</label>
+                                <select class="form-select" id="log-action-filter" onchange="filterLogs()">
+                                    <option value="">Tất cả</option>
+                                    <option value="LOGIN">Đăng nhập</option>
+                                    <option value="UPDATE_ORDER_STATUS">Cập nhật trạng thái đơn</option>
+                                    <option value="UPDATE_USER_STATUS">Cập nhật trạng thái user</option>
+                                    <option value="CREATE_USER">Tạo người dùng</option>
+                                    <option value="DELETE_ORDER">Xóa đơn</option>
+                                    <option value="UPDATE_PRICE">Sửa giá</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="log-target-filter" class="form-label mb-0">Loại đối tượng</label>
+                                <select class="form-select" id="log-target-filter" onchange="filterLogs()">
+                                    <option value="">Tất cả</option>
+                                    <option value="order">Đơn hàng</option>
+                                    <option value="user">Người dùng</option>
+                                    <option value="pricing_rule">Bảng giá</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="refreshLogs()">
+                                <i class="fas fa-sync-alt me-2"></i>Làm mới
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive table-scroll">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Người thực hiện</th>
+                                        <th>Hành động</th>
+                                        <th>Đối tượng</th>
+                                        <th>IP Address</th>
+                                        <th>Chi tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logs-table"></tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center" id="logs-pagination">
+                            <!-- Pagination will be inserted here -->
                         </div>
                     </div>
                 </div>
@@ -1182,6 +1360,56 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                     <button type="button" class="btn btn-primary" onclick="saveHub()">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Thêm người dùng mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-user-form">
+                        <div class="mb-3">
+                            <label class="form-label">Họ tên <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="user-full-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="user-email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mật khẩu <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="user-password" required minlength="6">
+                            <small class="text-muted">Tối thiểu 6 ký tự</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" class="form-control" id="user-phone" pattern="[0-9]{9,11}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Địa chỉ</label>
+                            <textarea class="form-control" id="user-address" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vai trò <span class="text-danger">*</span></label>
+                            <select class="form-select" id="user-role" required>
+                                <option value="">-- Chọn vai trò --</option>
+                                <option value="shipper">Shipper</option>
+                                <option value="intake_staff">Nhân viên kho</option>
+                            </select>
+                            <small class="text-muted">Chỉ có thể tạo tài khoản Shipper hoặc Nhân viên kho</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="createUser()">Tạo người dùng</button>
                 </div>
             </div>
         </div>

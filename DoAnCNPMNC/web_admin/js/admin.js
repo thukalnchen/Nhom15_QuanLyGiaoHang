@@ -43,8 +43,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Display user info
     displayUserInfo();
     
-    initializeSocketIO();
-    loadDashboard();
+    // Initialize Socket.IO with error handling
+    try {
+        initializeSocketIO();
+    } catch (error) {
+        console.error('Error initializing Socket.IO:', error);
+        // Continue without Socket.IO - admin panel can work without real-time updates
+    }
+    
+    // Load dashboard with error handling
+    loadDashboard().catch(error => {
+        console.error('Error loading dashboard:', error);
+        forceHideLoading();
+        showNotification('Không thể tải dashboard. Vui lòng tải lại trang.', 'error');
+    });
 });
 
 // Check authentication
@@ -93,6 +105,17 @@ function initializeSocketIO() {
         socket = null;
     }
 
+    // Add connection timeout
+    const connectionTimeout = setTimeout(() => {
+        if (socket && !socket.connected) {
+            console.warn('[Socket.IO] Connection timeout - disabling Socket.IO for this session');
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+    }, 10000); // 10 seconds timeout
+
     socket = io('http://localhost:3000', {
         // Use polling only for better stability (websocket seems unstable after upgrade)
         transports: ['polling'],
@@ -100,8 +123,8 @@ function initializeSocketIO() {
         reconnection: true,
         reconnectionDelay: 1000, // Start with 1 second
         reconnectionDelayMax: 10000, // Maximum 10 seconds between attempts
-        reconnectionAttempts: Infinity, // Try to reconnect forever
-        timeout: 60000, // Longer connection timeout (60 seconds)
+        reconnectionAttempts: 5, // Limit reconnection attempts (was Infinity)
+        timeout: 10000, // Shorter connection timeout (10 seconds instead of 60)
         // Keep alive settings
         forceNew: false, // Reuse connection if possible
         autoConnect: true,
@@ -115,7 +138,9 @@ function initializeSocketIO() {
         multiplex: false // Don't multiplex connections
     });
 
+    // Clear timeout on successful connection
     socket.on('connect', () => {
+        clearTimeout(connectionTimeout);
         const transport = socket.io.engine.transport.name;
         console.log(`[Socket.IO] Connected to server (transport: ${transport})`);
         
@@ -172,8 +197,9 @@ function initializeSocketIO() {
 
     socket.on('reconnect_failed', () => {
         console.error('[Socket.IO] Failed to reconnect to server after all attempts');
-        // Show error notification only after all reconnection attempts failed
-        showNotification('Mất kết nối với máy chủ. Vui lòng tải lại trang.', 'error');
+        // Don't show error notification - Socket.IO is optional for admin panel
+        // Admin can still use the panel without real-time updates
+        console.warn('[Socket.IO] Continuing without real-time updates');
     });
 
     socket.on('order-status-updated', (data) => {
@@ -219,8 +245,8 @@ function initializeSocketIO() {
     });
 }
 
-// API Helper function
-async function apiCall(endpoint, method = 'GET', data = null) {
+// API Helper function with timeout
+async function apiCall(endpoint, method = 'GET', data = null, timeout = 30000) {
     // Demo mode: return mock data
     if (isDemoMode) {
         return getMockData(endpoint, method, data);
@@ -245,7 +271,16 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+        // Create timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Request timeout - Server không phản hồi sau 30 giây')), timeout);
+        });
+
+        // Race between fetch and timeout
+        const response = await Promise.race([
+            fetch(`${API_BASE_URL}${endpoint}`, options),
+            timeoutPromise
+        ]);
 
         // Check status code before parsing
         const contentType = response.headers.get('content-type');
@@ -307,7 +342,11 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         if (!suppressNotifications && !error.message.includes('Session expired')) {
             // For rate limit errors, show warning instead of error
             const isRateLimit = error.message.includes('Quá nhiều yêu cầu') || error.message.includes('Too many');
-            showNotification(error.message || 'Lỗi kết nối API', isRateLimit ? 'warning' : 'error');
+            const isTimeout = error.message.includes('timeout') || error.message.includes('Timeout');
+            showNotification(
+                error.message || 'Lỗi kết nối API', 
+                isRateLimit ? 'warning' : (isTimeout ? 'warning' : 'error')
+            );
         }
         throw error;
     }
@@ -316,21 +355,33 @@ async function apiCall(endpoint, method = 'GET', data = null) {
 // Navigation functions
 function showDashboard() {
     hideAllSections();
-    document.getElementById('dashboard-section').style.display = 'block';
+    const dashboardSection = document.getElementById('dashboard-section');
+    if (dashboardSection) {
+        dashboardSection.style.display = 'block';
+        dashboardSection.style.visibility = 'visible';
+    }
     setActiveMenu(0);
     loadDashboard();
 }
 
 function showOrders() {
     hideAllSections();
-    document.getElementById('orders-section').style.display = 'block';
+    const ordersSection = document.getElementById('orders-section');
+    if (ordersSection) {
+        ordersSection.style.display = 'block';
+        ordersSection.style.visibility = 'visible';
+    }
     setActiveMenu(1);
     loadOrders();
 }
 
 function showTracking() {
     hideAllSections();
-    document.getElementById('tracking-section').style.display = 'block';
+    const trackingSection = document.getElementById('tracking-section');
+    if (trackingSection) {
+        trackingSection.style.display = 'block';
+        trackingSection.style.visibility = 'visible';
+    }
     setActiveMenu(2);
     loadActiveDeliveries();
 }
@@ -340,6 +391,7 @@ function showShippers() {
     const section = document.getElementById('shippers-section');
     if (section) {
         section.style.display = 'block';
+        section.style.visibility = 'visible';
     }
     setActiveMenu(3);
     loadShippers();
@@ -347,26 +399,91 @@ function showShippers() {
 
 function showUsers() {
     hideAllSections();
-    document.getElementById('users-section').style.display = 'block';
+    const usersSection = document.getElementById('users-section');
+    if (usersSection) {
+        usersSection.style.display = 'block';
+        usersSection.style.visibility = 'visible';
+    }
     setActiveMenu(4);
     loadUsers();
 }
 
+function showNotifications() {
+    hideAllSections();
+    const notificationsSection = document.getElementById('notifications-section');
+    if (notificationsSection) {
+        notificationsSection.style.display = 'block';
+        notificationsSection.style.visibility = 'visible';
+    }
+    setActiveMenu(10);
+}
+
+function showLogs() {
+    hideAllSections();
+    const logsSection = document.getElementById('logs-section');
+    if (logsSection) {
+        logsSection.style.display = 'block';
+        logsSection.style.visibility = 'visible';
+    }
+    setActiveMenu(11);
+    loadLogs();
+}
+
 function showAnalytics() {
     hideAllSections();
-    document.getElementById('analytics-section').style.display = 'block';
+    const analyticsSection = document.getElementById('analytics-section');
+    if (analyticsSection) {
+        analyticsSection.style.display = 'block';
+        analyticsSection.style.visibility = 'visible';
+    }
     setActiveMenu(5);
     loadAnalytics();
 }
 
 function hideAllSections() {
-    const sections = ['dashboard-section', 'orders-section', 'tracking-section', 'shippers-section', 'users-section', 'analytics-section', 'areas-section', 'pricing-rules-section', 'stats-dashboard-section', 'hubs-section', 'cod-section'];
-    sections.forEach(section => {
-        const element = document.getElementById(section);
-        if (element) {
-            element.style.display = 'none';
+    // Method 1: Hide all sections with class 'section-block' (most reliable - catches all sections)
+    const allSections = document.querySelectorAll('.section-block');
+    allSections.forEach(section => {
+        if (section) {
+            section.style.display = 'none';
+            section.style.visibility = 'hidden';
         }
     });
+    
+    // Method 2: Also explicitly hide by ID for safety (backup method)
+    const sectionIds = [
+        'dashboard-section', 
+        'orders-section', 
+        'tracking-section', 
+        'shippers-section', 
+        'users-section', 
+        'analytics-section', 
+        'areas-section', 
+        'pricing-rules-section', 
+        'stats-dashboard-section', 
+        'hubs-section', 
+        'cod-section',
+        'notifications-section',
+        'logs-section'
+    ];
+    sectionIds.forEach(sectionId => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+            element.style.display = 'none';
+            element.style.visibility = 'hidden';
+        }
+    });
+    
+    // Method 3: Force hide any element inside main-content that might be a section
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        const allChildren = mainContent.querySelectorAll('section[id$="-section"]');
+        allChildren.forEach(section => {
+            if (section && section.classList.contains('section-block')) {
+                section.style.display = 'none';
+            }
+        });
+    }
 }
 
 function setActiveMenu(index) {
@@ -389,7 +506,11 @@ function setActiveMenu(index) {
 
 function showAreas() {
     hideAllSections();
-    document.getElementById('areas-section').style.display = 'block';
+    const areasSection = document.getElementById('areas-section');
+    if (areasSection) {
+        areasSection.style.display = 'block';
+        areasSection.style.visibility = 'visible';
+    }
     setActiveMenu(6);
     loadAreas();
 }
@@ -397,7 +518,11 @@ function showAreas() {
 // US-19 & US-12: Show COD Reconciliation
 function showCodReconciliation() {
     hideAllSections();
-    document.getElementById('cod-section').style.display = 'block';
+    const codSection = document.getElementById('cod-section');
+    if (codSection) {
+        codSection.style.display = 'block';
+        codSection.style.visibility = 'visible';
+    }
     setActiveMenu(9);
     // Ensure loading is reset before loading COD orders
     if (activeLoadingRequests > 0) {
@@ -426,9 +551,16 @@ async function loadDashboard(options = {}) {
             showLoading();
         }
 
+        // Add timeout for each API call (20 seconds each)
         const [statsResult, ordersResult] = await Promise.allSettled([
-            apiCall('/admin/stats'),
-            apiCall('/admin/orders?limit=5')
+            apiCall('/admin/stats', 'GET', null, 20000).catch(err => {
+                console.error('Stats API error:', err);
+                return { status: 'error', message: err.message };
+            }),
+            apiCall('/admin/orders?limit=5', 'GET', null, 20000).catch(err => {
+                console.error('Orders API error:', err);
+                return { status: 'error', message: err.message };
+            })
         ]);
 
         if (statsResult.status === 'fulfilled') {
@@ -471,17 +603,30 @@ async function loadDashboard(options = {}) {
                 showNotification('Không thể tải đơn hàng gần đây.', 'error');
             }
         }
-    } catch (error) {
-        console.error('Error loading dashboard:', error);
-        if (!silent) {
-            showNotification(error.message || 'Không thể tải Dashboard', 'error');
-        }
-    } finally {
-        if (!silent) {
-            hideLoading();
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+            if (!silent) {
+                showNotification(error.message || 'Không thể tải Dashboard', 'error');
+            }
+        } finally {
+            // Always hide loading, even on error
+            if (!silent) {
+                hideLoading();
+            }
+            // Force hide loading modal if still showing
+            setTimeout(() => {
+                const modal = getLoadingModalInstance();
+                if (modal) {
+                    try {
+                        modal.hide();
+                    } catch (e) {
+                        // Ignore
+                    }
+                }
+                activeLoadingRequests = 0;
+            }, 100);
         }
     }
-}
 
 function displayRecentOrders(orders) {
     const tbody = document.getElementById('recent-orders-table');
@@ -1056,21 +1201,40 @@ async function updateShipperStatusFromModal(status) {
 }
 
 // Users functions
+let currentUsersPage = 1;
+let totalUsersPages = 1;
+
 async function loadUsers(options = {}) {
-    const { silent = false } = options;
+    const { silent = false, page = 1 } = options;
     try {
         if (!silent) {
             showLoading();
         }
 
-        const response = await apiCall('/admin/users?limit=50');
+        const roleFilter = document.getElementById('user-role-filter')?.value || '';
+        const searchFilter = document.getElementById('user-search-filter')?.value || '';
+        
+        let endpoint = `/admin/users?limit=50&offset=${(page - 1) * 50}`;
+        if (roleFilter) endpoint += `&role=${roleFilter}`;
+        if (searchFilter) endpoint += `&search=${encodeURIComponent(searchFilter)}`;
+
+        const response = await apiCall(endpoint);
         
         if (response.status === 'success') {
             displayUsers(response.data.users);
+            const pagination = response.data?.pagination || {};
+            totalUsersPages = pagination.pages || 1;
+            currentUsersPage = page;
+            displayUsersPagination(pagination);
+        } else if (!silent) {
+            showNotification(response.message || 'Không thể tải danh sách người dùng', 'error');
         }
         
     } catch (error) {
         console.error('Error loading users:', error);
+        if (!silent) {
+            showNotification('Lỗi khi tải danh sách người dùng', 'error');
+        }
     } finally {
         if (!silent) {
             hideLoading();
@@ -1085,37 +1249,191 @@ function displayUsers(users) {
     tbody.innerHTML = '';
     
     if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Chưa có người dùng nào</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Chưa có người dùng nào</td></tr>';
         return;
     }
     
     users.forEach(user => {
+        const roleText = {
+            'customer': 'Khách hàng',
+            'shipper': 'Shipper',
+            'intake_staff': 'Nhân viên kho',
+            'admin': 'Admin'
+        }[user.role] || user.role;
+        
+        // Normalize status - default to 'active' if null/undefined
+        const userStatus = user.status || 'active';
+        const isActive = userStatus === 'active';
+        
+        const statusBadge = isActive
+            ? '<span class="badge bg-success">Hoạt động</span>'
+            : '<span class="badge bg-danger">Đã khóa</span>';
+        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${user.id}</td>
-            <td>${user.name}</td>
-            <td>${user.email}</td>
-            <td>${user.phone || 'N/A'}</td>
-            <td>${user.address ? user.address.substring(0, 40) + '...' : 'N/A'}</td>
+            <td>${escapeHtml(user.full_name || user.name || 'N/A')}</td>
+            <td>${escapeHtml(user.email || 'N/A')}</td>
+            <td>${escapeHtml(user.phone || 'N/A')}</td>
+            <td><span class="badge bg-info">${escapeHtml(roleText)}</span></td>
+            <td>${statusBadge}</td>
             <td>${formatDateTime(user.created_at)}</td>
-            <td>
-                <button class="btn btn-sm btn-primary" onclick="viewUserDetails(${user.id})">
-                    <i class="fas fa-eye"></i>
+            <td class="text-center">
+                <button class="btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'} toggle-user-status-btn" 
+                        data-user-id="${user.id}"
+                        data-user-status="${userStatus}"
+                        title="${isActive ? 'Khóa' : 'Mở khóa'}"
+                        type="button">
+                    <i class="fas fa-${isActive ? 'lock' : 'unlock'}"></i>
                 </button>
             </td>
         `;
+        
+        // Add event listener to button (more reliable than onclick)
+        const toggleBtn = row.querySelector('.toggle-user-status-btn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const userId = parseInt(this.getAttribute('data-user-id'));
+                const currentStatus = this.getAttribute('data-user-status');
+                toggleUserStatus(userId, currentStatus);
+            });
+        }
+        
         tbody.appendChild(row);
     });
 }
 
-function refreshUsers() {
-    loadUsers();
+function displayUsersPagination(pagination) {
+    const paginationEl = document.getElementById('users-pagination');
+    if (!paginationEl) return;
+    
+    if (pagination.pages <= 1) {
+        paginationEl.innerHTML = `<span class="text-muted">Tổng: ${pagination.total} người dùng</span>`;
+        return;
+    }
+    
+    let html = `<span class="text-muted">Tổng: ${pagination.total} người dùng</span>`;
+    html += '<nav><ul class="pagination pagination-sm mb-0">';
+    
+    // Previous
+    html += `<li class="page-item ${currentUsersPage === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadUsers({page: ${currentUsersPage - 1}}); return false;">Trước</a>
+    </li>`;
+    
+    // Pages
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === 1 || i === pagination.pages || (i >= currentUsersPage - 2 && i <= currentUsersPage + 2)) {
+            html += `<li class="page-item ${i === currentUsersPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="loadUsers({page: ${i}}); return false;">${i}</a>
+            </li>`;
+        } else if (i === currentUsersPage - 3 || i === currentUsersPage + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // Next
+    html += `<li class="page-item ${currentUsersPage === pagination.pages ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadUsers({page: ${currentUsersPage + 1}}); return false;">Sau</a>
+    </li>`;
+    
+    html += '</ul></nav>';
+    paginationEl.innerHTML = html;
 }
 
-function viewUserDetails(userId) {
-    // TODO: Implement user details view
-    showNotification('Xem chi tiết người dùng - Coming soon!', 'info');
+function filterUsers() {
+    loadUsers({ page: 1 });
 }
+
+function refreshUsers() {
+    loadUsers({ page: currentUsersPage });
+}
+
+function showCreateUserModal() {
+    document.getElementById('create-user-form').reset();
+    const modal = new bootstrap.Modal(document.getElementById('createUserModal'));
+    modal.show();
+}
+
+async function createUser() {
+    try {
+        const fullName = document.getElementById('user-full-name').value;
+        const email = document.getElementById('user-email').value;
+        const password = document.getElementById('user-password').value;
+        const phone = document.getElementById('user-phone').value;
+        const address = document.getElementById('user-address').value;
+        const role = document.getElementById('user-role').value;
+        
+        if (!fullName || !email || !password || !role) {
+            showNotification('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
+            return;
+        }
+        
+        showLoading();
+        const response = await apiCall('/admin/users', 'POST', {
+            full_name: fullName,
+            email: email,
+            password: password,
+            phone: phone || undefined,
+            address: address || undefined,
+            role: role
+        });
+        
+        if (response.status === 'success') {
+            showNotification('Tạo người dùng thành công', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+            loadUsers({ page: 1 });
+        } else {
+            showNotification(response.message || 'Không thể tạo người dùng', 'error');
+        }
+    } catch (error) {
+        console.error('createUser error:', error);
+        showNotification('Lỗi khi tạo người dùng: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function toggleUserStatus(userId, currentStatus) {
+    console.log('toggleUserStatus called:', { userId, currentStatus });
+    
+    // Validate inputs
+    if (!userId || !currentStatus) {
+        console.error('Invalid parameters:', { userId, currentStatus });
+        showNotification('Thông tin không hợp lệ', 'error');
+        return;
+    }
+    
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const confirmMsg = newStatus === 'suspended' 
+        ? 'Bạn có chắc muốn khóa tài khoản này?'
+        : 'Bạn có chắc muốn mở khóa tài khoản này?';
+    
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        showLoading();
+        const response = await apiCall(`/admin/users/${userId}/status`, 'PATCH', {
+            status: newStatus
+        });
+        
+        if (response.status === 'success') {
+            showNotification(response.message || 'Cập nhật trạng thái thành công', 'success');
+            refreshUsers();
+        } else {
+            showNotification(response.message || 'Không thể cập nhật trạng thái', 'error');
+        }
+    } catch (error) {
+        console.error('toggleUserStatus error:', error);
+        showNotification('Lỗi khi cập nhật trạng thái: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Expose to window for global access
+window.toggleUserStatus = toggleUserStatus;
 
 // Analytics functions
 async function loadAnalytics(options = {}) {
@@ -1329,6 +1647,14 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
+// Escape HTML to prevent XSS and fix onclick issues
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function formatDateTime(dateString) {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -1435,6 +1761,31 @@ function hideLoading() {
         }
     }, 150);
 }
+
+// Force hide loading modal (emergency function)
+function forceHideLoading() {
+    activeLoadingRequests = 0;
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+    }
+    const modal = getLoadingModalInstance();
+    if (modal) {
+        try {
+            modal.hide();
+        } catch (e) {
+            console.warn('Error force hiding loading modal:', e);
+        }
+    }
+}
+
+// Auto-hide loading after maximum time (safety net - 60 seconds)
+setTimeout(() => {
+    if (activeLoadingRequests > 0) {
+        console.warn('⚠️ Loading modal has been showing for too long, forcing hide');
+        forceHideLoading();
+    }
+}, 60000);
 
 function showNotification(message, type = 'info') {
     // Create notification element
@@ -1706,23 +2057,85 @@ async function showDispatchModal() {
         showLoading();
         const response = await apiCall('/admin/shippers/available');
         
-        if (response.status === 'success') {
-            const select = document.getElementById('dispatch-shipper-select');
-            select.innerHTML = '<option value="">-- Chọn shipper --</option>';
-            
-            response.data.forEach(shipper => {
-                const option = document.createElement('option');
-                option.value = shipper.id;
-                option.textContent = `${shipper.full_name} (${shipper.vehicle_type || 'N/A'}) - ${shipper.active_orders_count || 0} đơn đang giao`;
-                select.appendChild(option);
-            });
-            
-            updateSelectedOrdersList();
-            const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
-            modal.show();
+        console.log('Response from /admin/shippers/available:', response);
+        
+        const select = document.getElementById('dispatch-shipper-select');
+        if (!select) {
+            console.error('Không tìm thấy element dispatch-shipper-select');
+            showNotification('Lỗi: Không tìm thấy dropdown shipper', 'error');
+            return;
         }
+        
+        // Clear existing options
+        select.innerHTML = '<option value="">-- Chọn shipper --</option>';
+        
+        if (response && response.status === 'success' && Array.isArray(response.data)) {
+            if (response.data.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = '-- Không có shipper nào khả dụng --';
+                option.disabled = true;
+                select.appendChild(option);
+                showNotification('Hiện tại không có shipper nào khả dụng. Vui lòng tạo shipper mới.', 'warning');
+            } else {
+                response.data.forEach(shipper => {
+                    const option = document.createElement('option');
+                    const activeOrders = shipper.active_orders_count || 0;
+                    const status = shipper.status || 'unknown';
+                    
+                    // Status indicator
+                    let statusIndicator = '';
+                    if (status === 'approved') {
+                        statusIndicator = '✓';
+                    } else if (status === 'active') {
+                        statusIndicator = '●';
+                    } else {
+                        statusIndicator = '○';
+                    }
+                    
+                    // Load indicator
+                    const loadText = activeOrders >= 3 ? ' (Quá tải)' : activeOrders >= 2 ? ' (Gần đầy)' : '';
+                    
+                    option.value = shipper.id;
+                    option.textContent = `${statusIndicator} ${shipper.full_name} (${shipper.vehicle_type || 'N/A'}) - ${activeOrders} đơn đang giao${loadText}`;
+                    
+                    // Highlight based on status and load
+                    if (status !== 'approved' && status !== 'active') {
+                        option.style.color = '#6c757d'; // Gray for other statuses
+                    } else if (activeOrders >= 3) {
+                        option.style.color = '#dc3545'; // Red for overloaded
+                    } else if (activeOrders >= 2) {
+                        option.style.color = '#ffc107'; // Yellow/Orange for near full
+                    }
+                    
+                    select.appendChild(option);
+                });
+            }
+        } else {
+            console.error('Invalid response format:', response);
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '-- Lỗi tải danh sách shipper --';
+            option.disabled = true;
+            select.appendChild(option);
+            showNotification('Không thể tải danh sách shipper. Vui lòng thử lại.', 'error');
+        }
+        
+        updateSelectedOrdersList();
+        const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
+        modal.show();
     } catch (error) {
-        showNotification('Không thể tải danh sách shipper', 'error');
+        console.error('Error loading shippers:', error);
+        const select = document.getElementById('dispatch-shipper-select');
+        if (select) {
+            select.innerHTML = '<option value="">-- Lỗi tải danh sách shipper --</option>';
+        }
+        showNotification(error.message || 'Không thể tải danh sách shipper', 'error');
+        
+        // Still show modal so user knows what happened
+        updateSelectedOrdersList();
+        const modal = new bootstrap.Modal(document.getElementById('dispatchModal'));
+        modal.show();
     } finally {
         hideLoading();
     }
@@ -2276,7 +2689,11 @@ async function confirmCodReceived(orderId) {
 // ============================================
 function showPricingRules() {
     hideAllSections();
-    document.getElementById('pricing-rules-section').style.display = 'block';
+    const pricingRulesSection = document.getElementById('pricing-rules-section');
+    if (pricingRulesSection) {
+        pricingRulesSection.style.display = 'block';
+        pricingRulesSection.style.visibility = 'visible';
+    }
     setActiveMenu(7);
     loadPricingRules();
 }
@@ -2460,7 +2877,11 @@ async function deletePricingRule(id) {
 // ============================================
 function showStatsDashboard() {
     hideAllSections();
-    document.getElementById('stats-dashboard-section').style.display = 'block';
+    const statsSection = document.getElementById('stats-dashboard-section');
+    if (statsSection) {
+        statsSection.style.display = 'block';
+        statsSection.style.visibility = 'visible';
+    }
     setActiveMenu(9);
     loadStatsDashboard();
 }
@@ -2651,7 +3072,11 @@ function displayPerformanceStats(data) {
 // ============================================
 function showHubs() {
     hideAllSections();
-    document.getElementById('hubs-section').style.display = 'block';
+    const hubsSection = document.getElementById('hubs-section');
+    if (hubsSection) {
+        hubsSection.style.display = 'block';
+        hubsSection.style.visibility = 'visible';
+    }
     setActiveMenu(8);
     loadHubs();
 }
@@ -2831,6 +3256,233 @@ async function deleteHub(id) {
     } finally {
         hideLoading();
     }
+}
+
+// US-27: Notifications functions
+function handleRecipientTypeChange() {
+    const type = document.getElementById('notification-recipient-type').value;
+    const valueGroup = document.getElementById('recipient-value-group');
+    const roleSelect = document.getElementById('notification-recipient-role');
+    const userInput = document.getElementById('notification-recipient-user');
+    const label = document.getElementById('recipient-value-label');
+    
+    if (type === 'all') {
+        valueGroup.style.display = 'none';
+    } else if (type === 'role') {
+        valueGroup.style.display = 'block';
+        roleSelect.style.display = 'block';
+        userInput.style.display = 'none';
+        label.textContent = 'Chọn vai trò';
+        roleSelect.required = true;
+        userInput.required = false;
+    } else if (type === 'user') {
+        valueGroup.style.display = 'block';
+        roleSelect.style.display = 'none';
+        userInput.style.display = 'block';
+        label.textContent = 'ID người dùng';
+        roleSelect.required = false;
+        userInput.required = true;
+    }
+}
+
+function resetNotificationForm() {
+    document.getElementById('notification-form').reset();
+    document.getElementById('recipient-value-group').style.display = 'none';
+}
+
+async function sendNotification(event) {
+    event.preventDefault();
+    
+    try {
+        const title = document.getElementById('notification-title').value;
+        const content = document.getElementById('notification-content').value;
+        const recipientType = document.getElementById('notification-recipient-type').value;
+        const sendEmail = document.getElementById('notification-send-email').checked;
+        const sendPush = document.getElementById('notification-send-push').checked;
+        
+        let recipientValue = null;
+        if (recipientType === 'role') {
+            recipientValue = document.getElementById('notification-recipient-role').value;
+        } else if (recipientType === 'user') {
+            recipientValue = parseInt(document.getElementById('notification-recipient-user').value);
+        }
+        
+        if (!title || !content || !recipientType) {
+            showNotification('Vui lòng điền đầy đủ thông tin', 'error');
+            return;
+        }
+        
+        if (recipientType !== 'all' && !recipientValue) {
+            showNotification('Vui lòng chọn đối tượng nhận', 'error');
+            return;
+        }
+        
+        showLoading();
+        const response = await apiCall('/admin/notifications/send', 'POST', {
+            title: title,
+            content: content,
+            recipient_type: recipientType,
+            recipient_value: recipientValue,
+            send_email: sendEmail,
+            send_push: sendPush
+        });
+        
+        if (response.status === 'success') {
+            const data = response.data;
+            showNotification(
+                `Đã gửi thông báo: ${data.notifications_created} thông báo, ${data.emails_sent} email, ${data.push_sent} push`,
+                'success'
+            );
+            resetNotificationForm();
+        } else {
+            showNotification(response.message || 'Không thể gửi thông báo', 'error');
+        }
+    } catch (error) {
+        console.error('sendNotification error:', error);
+        showNotification('Lỗi khi gửi thông báo: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// US-28: System Logs functions
+let currentLogsPage = 1;
+let totalLogsPages = 1;
+
+async function loadLogs(options = {}) {
+    const { silent = false, page = 1 } = options;
+    try {
+        if (!silent) {
+            showLoading();
+        }
+
+        const actionFilter = document.getElementById('log-action-filter')?.value || '';
+        const targetFilter = document.getElementById('log-target-filter')?.value || '';
+        
+        let endpoint = `/admin/logs?limit=20&offset=${(page - 1) * 20}`;
+        if (actionFilter) endpoint += `&action=${actionFilter}`;
+        if (targetFilter) endpoint += `&target_type=${targetFilter}`;
+
+        const response = await apiCall(endpoint);
+        
+        if (response.status === 'success') {
+            displayLogs(response.data.logs);
+            const pagination = response.data?.pagination || {};
+            totalLogsPages = pagination.pages || 1;
+            currentLogsPage = page;
+            displayLogsPagination(pagination);
+        } else if (!silent) {
+            showNotification(response.message || 'Không thể tải nhật ký', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error loading logs:', error);
+        if (!silent) {
+            showNotification('Lỗi khi tải nhật ký', 'error');
+        }
+    } finally {
+        if (!silent) {
+            hideLoading();
+        }
+    }
+}
+
+function displayLogs(logs) {
+    const tbody = document.getElementById('logs-table');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Chưa có nhật ký nào</td></tr>';
+        return;
+    }
+    
+    logs.forEach(log => {
+        const userInfo = log.user 
+            ? `${log.user.name || log.user.email} (${log.user.role})`
+            : '<span class="text-muted">Hệ thống</span>';
+        
+        const targetInfo = log.target_type && log.target_id
+            ? `${log.target_type} #${log.target_id}`
+            : '-';
+        
+        const actionText = {
+            'LOGIN': 'Đăng nhập',
+            'UPDATE_ORDER_STATUS': 'Cập nhật trạng thái đơn',
+            'UPDATE_USER_STATUS': 'Cập nhật trạng thái user',
+            'CREATE_USER': 'Tạo người dùng',
+            'DELETE_ORDER': 'Xóa đơn',
+            'UPDATE_PRICE': 'Sửa giá'
+        }[log.action] || log.action;
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${formatDateTime(log.created_at)}</td>
+            <td>${userInfo}</td>
+            <td><span class="badge bg-primary">${actionText}</span></td>
+            <td>${targetInfo}</td>
+            <td><small class="text-muted">${log.ip_address || '-'}</small></td>
+            <td>
+                ${log.details && Object.keys(log.details).length > 0 
+                    ? `<button class="btn btn-sm btn-info" onclick="showLogDetails(${log.id}, ${JSON.stringify(log.details).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-info-circle"></i>
+                    </button>`
+                    : '-'}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function displayLogsPagination(pagination) {
+    const paginationEl = document.getElementById('logs-pagination');
+    if (!paginationEl) return;
+    
+    if (pagination.pages <= 1) {
+        paginationEl.innerHTML = `<span class="text-muted">Tổng: ${pagination.total} bản ghi</span>`;
+        return;
+    }
+    
+    let html = `<span class="text-muted">Tổng: ${pagination.total} bản ghi</span>`;
+    html += '<nav><ul class="pagination pagination-sm mb-0">';
+    
+    // Previous
+    html += `<li class="page-item ${currentLogsPage === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadLogs({page: ${currentLogsPage - 1}}); return false;">Trước</a>
+    </li>`;
+    
+    // Pages
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === 1 || i === pagination.pages || (i >= currentLogsPage - 2 && i <= currentLogsPage + 2)) {
+            html += `<li class="page-item ${i === currentLogsPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="loadLogs({page: ${i}}); return false;">${i}</a>
+            </li>`;
+        } else if (i === currentLogsPage - 3 || i === currentLogsPage + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // Next
+    html += `<li class="page-item ${currentLogsPage === pagination.pages ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadLogs({page: ${currentLogsPage + 1}}); return false;">Sau</a>
+    </li>`;
+    
+    html += '</ul></nav>';
+    paginationEl.innerHTML = html;
+}
+
+function filterLogs() {
+    loadLogs({ page: 1 });
+}
+
+function refreshLogs() {
+    loadLogs({ page: currentLogsPage });
+}
+
+function showLogDetails(logId, details) {
+    const detailsStr = JSON.stringify(details, null, 2);
+    alert(`Chi tiết nhật ký #${logId}:\n\n${detailsStr}`);
 }
 
 // Auto-refresh at a configurable interval for real-time data

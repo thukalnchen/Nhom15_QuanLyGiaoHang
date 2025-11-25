@@ -36,7 +36,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   setState(() => _pushNotifications = value);
                   if (value) {
                     final provider = Provider.of<NotificationProvider>(context, listen: false);
-                    await provider.requestPermission();
+                    await provider.requestPermissions();
                   }
                 },
               ),

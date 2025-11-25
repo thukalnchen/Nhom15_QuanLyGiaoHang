@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../utils/constants.dart';
 import '../auth/login_screen.dart';
 import '../orders/order_detail_screen.dart';
+import '../notifications/notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -22,7 +24,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadOrders);
+    Future.microtask(() {
+      _loadOrders();
+      _loadNotifications();
+    });
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final notificationProvider = context.read<NotificationProvider>();
+      await notificationProvider.fetchNotifications();
+      await notificationProvider.fetchUnreadCount();
+    } catch (e) {
+      print('Error loading notifications: $e');
+    }
   }
 
   Future<void> _loadOrders() async {
@@ -114,6 +129,47 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text(AppTexts.orders),
         actions: [
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    onPressed: () {
+                      Navigator.pushNamed(context, NotificationScreen.routeName);
+                    },
+                  ),
+                  if (notificationProvider.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          notificationProvider.unreadCount > 99
+                              ? '99+'
+                              : notificationProvider.unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             tooltip: AppTexts.logout,
             onPressed: _logout,
